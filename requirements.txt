@@ -1,0 +1,21 @@
+# Core dependencies for Resume Matcher AI
+PyMuPDF==1.23.14
+requests==2.31.0
+
+# Web application dependencies
+streamlit==1.28.1
+pandas==2.1.3
+plotly==5.17.0
+reportlab==4.0.7
+
+# Database dependencies
+psycopg2-binary==2.9.7
+bcrypt==4.0.1
+
+# Payment processing dependencies
+stripe==7.8.0
+razorpay==1.4.2
+python-dotenv==1.0.1
+
+# Additional dependencies for enhanced functionality
+typing-extensions==4.8.0

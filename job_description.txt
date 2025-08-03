@@ -1,0 +1,48 @@
+"
+
+Job Title: Junior Full Stack Developer (AI-Optimized Workflows)
+Location: Remote (India-based preferred)
+Type: Full-time / Internship / Contract (3–6 months, with PPO)
+Compensation: ₹4–6 LPA (Full-time) or ₹20,000–₹40,000/month (Internship)
+
+About Us:
+We are a fast-growing tech startup building AI-assisted platforms for hiring, logistics, and ed-tech. Our mission is to simplify digital workflows using the latest in AI, automation, and web technologies. We're looking for a sharp, motivated Junior Full Stack Developer to join our remote team and contribute to next-gen web products from day one.
+
+Role Overview:
+As a Junior Developer, you’ll help design and build robust, scalable, and responsive web applications using modern technologies like React, TypeScript, and Next.js. You’ll also work on internal developer tools powered by AI copilots to enhance efficiency across our engineering team. You should be comfortable writing clean code, iterating quickly, and solving algorithmic challenges when needed.
+
+What You'll Do:
+- Build and maintain full-stack web features using Next.js, TypeScript, and Node.js
+- Design responsive UIs with strong attention to mobile compatibility and performance optimization
+- Collaborate with designers and product managers to bring features to life
+- Use tools like ChatGPT / Cursor AI to speed up dev workflows and reduce boilerplate
+- Write test cases and maintain code quality in an agile environment
+- Occasionally contribute to backend APIs and microservices
+- Help with algorithmically driven features, such as resume ranking, skill matching, or user recommendations
+
+Requirements:
+- Experience with JavaScript, React, TypeScript, and modern web development practices
+- Familiarity with Next.js or other full-stack React frameworks
+- Basic understanding of data structures, algorithms, and code optimization
+- Ability to build mobile-first responsive interfaces
+- Knowledge of version control tools (e.g., Git/GitHub)
+- Comfortable using AI tools like ChatGPT, GitHub Copilot, or Cursor
+
+Bonus Skills (Nice to Have):
+- Exposure to C++, Java, or Python
+- Prior experience with problem setting, contests, or coding platforms
+- Worked on SEO or performance optimizations (e.g., Google PageSpeed, Lighthouse)
+- Passion for building developer tools, internal dashboards, or hiring systems
+- Familiar with animation libraries like GSAP or other frontend enhancements
+
+Why Join Us:
+- Real product work — not just side features or filler tasks
+- Learn directly from senior engineers and designers
+- Flexible hours and remote-first culture
+- Hands-on experience with AI-integrated development tools
+- Potential for Pre-Placement Offer (PPO) based on performance
+
+How to Apply:
+Send your resume, portfolio (if any), and GitHub profile to hiring@ourcompany.com.
+Shortlisted candidates will be asked to complete a brief task involving either DSA or a frontend component.
+"

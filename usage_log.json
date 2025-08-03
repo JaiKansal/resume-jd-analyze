@@ -1,0 +1,138 @@
+[
+  {
+    "timestamp": "2025-08-02T12:57:03.879773",
+    "tokens_used": 100,
+    "estimated_cost": 0.0001,
+    "processing_time": 2.5,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T13:24:48.134795",
+    "tokens_used": 150,
+    "estimated_cost": 0.00015,
+    "processing_time": 3.2,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T13:32:42.002821",
+    "tokens_used": 200,
+    "estimated_cost": 0.0002,
+    "processing_time": 4.5,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T15:08:10.082594",
+    "tokens_used": 1933,
+    "estimated_cost": 0.001933,
+    "processing_time": 0.9574778079986572,
+    "success": false,
+    "error_message": "Bad request (400): The API request was malformed.\nThis may be due to:\n\u2022 Invalid prompt format\n\u2022 Prompt too long\n\u2022 Invalid parameters\n\nPlease try with a shorter resume or job description."
+  },
+  {
+    "timestamp": "2025-08-02T15:10:43.170311",
+    "tokens_used": 1302,
+    "estimated_cost": 0.001302,
+    "processing_time": 1.523853063583374,
+    "success": false,
+    "error_message": "Bad request (400): The API request was malformed.\nThis may be due to:\n\u2022 Invalid prompt format\n\u2022 Prompt too long\n\u2022 Invalid parameters\n\nPlease try with a shorter resume or job description."
+  },
+  {
+    "timestamp": "2025-08-02T15:13:15.433376",
+    "tokens_used": 1924,
+    "estimated_cost": 0.001924,
+    "processing_time": 0.8735511302947998,
+    "success": false,
+    "error_message": "Bad request (400): The API request was malformed.\nThis may be due to:\n\u2022 Invalid prompt format\n\u2022 Prompt too long\n\u2022 Invalid parameters\n\nPlease try with a shorter resume or job description."
+  },
+  {
+    "timestamp": "2025-08-02T15:13:37.457297",
+    "tokens_used": 1302,
+    "estimated_cost": 0.001302,
+    "processing_time": 1.349012851715088,
+    "success": false,
+    "error_message": "Bad request (400): The API request was malformed.\nThis may be due to:\n\u2022 Invalid prompt format\n\u2022 Prompt too long\n\u2022 Invalid parameters\n\nPlease try with a shorter resume or job description."
+  },
+  {
+    "timestamp": "2025-08-02T15:18:05.849636",
+    "tokens_used": 1302,
+    "estimated_cost": 0.001302,
+    "processing_time": 0.8308408260345459,
+    "success": false,
+    "error_message": "Bad request (400): The API request was malformed.\nThis may be due to:\n\u2022 Invalid prompt format\n\u2022 Prompt too long\n\u2022 Invalid parameters\n\nPlease try with a shorter resume or job description."
+  },
+  {
+    "timestamp": "2025-08-02T15:26:11.666131",
+    "tokens_used": 1302,
+    "estimated_cost": 0.001302,
+    "processing_time": 14.550163984298706,
+    "success": false,
+    "error_message": "API request failed after 3 attempts.\nLast error: HTTPSConnectionPool(host='api.perplexity.ai', port=443): Max retries exceeded with url: /chat/completions (Caused by NameResolutionError(\"<urllib3.connection.HTTPSConnection object at 0x106c39590>: Failed to resolve 'api.perplexity.ai' ([Errno 8] nodename nor servname provided, or not known)\"))\n\nThis could indicate:\n\u2022 Persistent network connectivity issues\n\u2022 API service outage\n\u2022 Firewall or proxy blocking requests\n\nPlease check your internet connection and try again later."
+  },
+  {
+    "timestamp": "2025-08-02T15:26:31.349340",
+    "tokens_used": 1657,
+    "estimated_cost": 0.001657,
+    "processing_time": 7.731247663497925,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T15:27:59.613823",
+    "tokens_used": 2446,
+    "estimated_cost": 0.0024460000000000003,
+    "processing_time": 14.337798833847046,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T15:52:09.227329",
+    "tokens_used": 2382,
+    "estimated_cost": 0.002382,
+    "processing_time": 13.542112112045288,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T16:07:46.392145",
+    "tokens_used": 2399,
+    "estimated_cost": 0.002399,
+    "processing_time": 11.512892961502075,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T16:10:27.774014",
+    "tokens_used": 2415,
+    "estimated_cost": 0.002415,
+    "processing_time": 12.012809038162231,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T16:14:30.259865",
+    "tokens_used": 2440,
+    "estimated_cost": 0.00244,
+    "processing_time": 10.081592082977295,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T17:33:54.679481",
+    "tokens_used": 2461,
+    "estimated_cost": 0.002461,
+    "processing_time": 16.804507970809937,
+    "success": true,
+    "error_message": null
+  },
+  {
+    "timestamp": "2025-08-02T17:42:19.407528",
+    "tokens_used": 2127,
+    "estimated_cost": 0.002127,
+    "processing_time": 11.311372756958008,
+    "success": true,
+    "error_message": null
+  }
+]
