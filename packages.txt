@@ -1,12 +1,4 @@
-# System packages required for the application
-# These will be installed on the Streamlit Cloud server
-
-# For PDF processing
 poppler-utils
-
-# For text processing
 libmagic1
-
-# For image processing (if needed)
 libgl1-mesa-glx
 libglib2.0-0
