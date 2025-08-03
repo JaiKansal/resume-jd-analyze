@@ -5,6 +5,7 @@ Handles Razorpay payment processing with Indian pricing
 
 import streamlit as st
 import logging
+import os
 from typing import Dict, Any, Optional
 from datetime import datetime
 
@@ -139,60 +140,118 @@ class PaymentForm:
     def _process_payment(self, user: User, plan_type: PlanType, amount: int, period: str):
         """Process the payment with Razorpay"""
         try:
-            # Create Razorpay customer if needed
-            customer = razorpay_service.create_customer(user)
-            
-            if not customer:
-                st.error("❌ Failed to create customer. Please try again.")
+            # Check if Razorpay is configured
+            if not razorpay_service.client:
+                st.error("❌ Payment system not configured. Please contact support.")
+                st.info("**Debug Info**: Razorpay client not initialized. Check API keys in secrets.")
                 return
             
-            # Create payment link
-            description = f"{plan_type.value.title()} Plan - {period}ly subscription"
-            payment_link = razorpay_service.create_payment_link(
-                amount=amount * 100,  # Convert to paisa
-                description=description,
-                customer_email=user.email,
-                plan_type=plan_type
-            )
-            
-            if payment_link:
-                st.success("✅ Payment link created successfully!")
+            # Show processing message
+            with st.spinner("Setting up payment..."):
+                # Try to create payment link directly (without customer creation first)
+                description = f"{plan_type.value.title()} Plan - {period}ly subscription"
                 
-                # Show payment link
-                st.markdown(f"""
-                ### 🚀 Complete Your Payment
+                # Create payment link with simplified approach
+                payment_link = self._create_simple_payment_link(
+                    amount=amount * 100,  # Convert to paisa
+                    description=description,
+                    customer_email=user.email,
+                    plan_type=plan_type
+                )
                 
-                Click the link below to complete your payment securely:
-                
-                **[Pay ₹{amount:,} with Razorpay →]({payment_link['short_url']})**
-                """)
-                
-                # Show QR code if available
-                if 'qr_code' in payment_link:
-                    st.image(payment_link['qr_code'], caption="Scan to pay with UPI", width=200)
-                
-                # Payment instructions
-                with st.expander("📋 Payment Instructions"):
-                    st.markdown("""
-                    1. **Click the payment link** above
-                    2. **Choose your payment method** (UPI, Card, Net Banking, etc.)
-                    3. **Complete the payment** securely through Razorpay
-                    4. **Your account will be upgraded** automatically
-                    5. **You'll receive a confirmation email**
+                if payment_link:
+                    st.success("✅ Payment link created successfully!")
                     
-                    **Need help?** Contact support at support@resumeanalyzer.com
+                    # Show payment link
+                    st.markdown(f"""
+                    ### 🚀 Complete Your Payment
+                    
+                    Click the link below to complete your payment securely:
+                    
+                    **[Pay ₹{amount:,} with Razorpay →]({payment_link['short_url']})**
                     """)
-                
-                # Track payment initiation
-                st.session_state.payment_initiated = True
-                st.session_state.payment_link = payment_link['short_url']
-                
-            else:
-                st.error("❌ Failed to create payment link. Please try again.")
+                    
+                    # Show QR code if available
+                    if 'qr_code' in payment_link:
+                        st.image(payment_link['qr_code'], caption="Scan to pay with UPI", width=200)
+                    
+                    # Payment instructions
+                    with st.expander("📋 Payment Instructions"):
+                        st.markdown("""
+                        1. **Click the payment link** above
+                        2. **Choose your payment method** (UPI, Card, Net Banking, etc.)
+                        3. **Complete the payment** securely through Razorpay
+                        4. **Your account will be upgraded** automatically
+                        5. **You'll receive a confirmation email**
+                        
+                        **Need help?** Contact support at support@resumeanalyzer.com
+                        """)
+                    
+                    # Track payment initiation
+                    st.session_state.payment_initiated = True
+                    st.session_state.payment_link = payment_link['short_url']
+                    
+                else:
+                    st.error("❌ Failed to create payment link.")
+                    
+                    # Show debug information
+                    with st.expander("🔧 Debug Information"):
+                        st.write("**Razorpay Configuration:**")
+                        st.write(f"- Key ID: {razorpay_service.key_id[:12]}..." if razorpay_service.key_id else "- Key ID: Not set")
+                        st.write(f"- Key Secret: {'Set' if razorpay_service.key_secret else 'Not set'}")
+                        st.write(f"- Client: {'Initialized' if razorpay_service.client else 'Not initialized'}")
+                        
+                        st.write("**User Information:**")
+                        st.write(f"- Email: {user.email}")
+                        st.write(f"- Plan: {plan_type.value}")
+                        st.write(f"- Amount: ₹{amount:,}")
+                    
+                    st.info("Please check your Razorpay configuration in Streamlit Cloud secrets.")
                 
         except Exception as e:
             logger.error(f"Payment processing error: {e}")
             st.error(f"❌ Payment error: {str(e)}")
+            
+            # Show debug information
+            with st.expander("🔧 Debug Information"):
+                st.write(f"**Error Details:** {str(e)}")
+                st.write(f"**Razorpay Available:** {razorpay_service.client is not None}")
+    
+    def _create_simple_payment_link(self, amount: int, description: str, 
+                                   customer_email: str, plan_type: PlanType) -> Optional[Dict[str, Any]]:
+        """Create a simple payment link without customer creation"""
+        if not razorpay_service.client:
+            return None
+        
+        try:
+            payment_link_data = {
+                'amount': amount,  # Amount in paisa
+                'currency': 'INR',
+                'accept_partial': False,
+                'description': description,
+                'customer': {
+                    'email': customer_email
+                },
+                'notify': {
+                    'sms': False,  # Disable SMS to avoid issues
+                    'email': True
+                },
+                'reminder_enable': True,
+                'notes': {
+                    'plan_type': plan_type.value,
+                    'product': 'resume_analyzer'
+                },
+                'callback_url': f"{os.getenv('APP_URL', 'http://localhost:8501')}/payment/success",
+                'callback_method': 'get'
+            }
+            
+            payment_link = razorpay_service.client.payment_link.create(payment_link_data)
+            logger.info(f"Created payment link: {payment_link['id']}")
+            return payment_link
+            
+        except Exception as e:
+            logger.error(f"Failed to create simple payment link: {e}")
+            return None
     
     def render_payment_success(self):
         """Render payment success page"""

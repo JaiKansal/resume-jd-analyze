@@ -45,26 +45,34 @@ class RazorpayService:
     def create_customer(self, user: User) -> Optional[Dict[str, Any]]:
         """Create a Razorpay customer"""
         if not self.client:
+            logger.error("Razorpay client not initialized - check API keys")
             return None
         
         try:
+            # Prepare customer data with fallbacks
             customer_data = {
-                'name': user.get_full_name(),
+                'name': getattr(user, 'first_name', 'User') + ' ' + getattr(user, 'last_name', ''),
                 'email': user.email,
-                'contact': user.phone or '',
+                'contact': getattr(user, 'phone', '') or '',
                 'notes': {
-                    'user_id': user.id,
-                    'company': user.company_name or '',
-                    'role': user.role.value
+                    'user_id': str(user.id),
+                    'company': getattr(user, 'company_name', '') or '',
+                    'role': getattr(user, 'role', 'user').value if hasattr(getattr(user, 'role', None), 'value') else 'user'
                 }
             }
             
+            # Clean up empty contact field if no phone
+            if not customer_data['contact']:
+                del customer_data['contact']
+            
+            logger.info(f"Creating Razorpay customer with data: {customer_data}")
             customer = self.client.customer.create(customer_data)
             logger.info(f"Created Razorpay customer: {customer['id']}")
             return customer
             
         except Exception as e:
             logger.error(f"Failed to create Razorpay customer: {e}")
+            logger.error(f"Customer data attempted: {customer_data}")
             return None
     
     def create_subscription_plan(self, plan_type: PlanType, billing_cycle: str = 'monthly') -> Optional[Dict[str, Any]]:
