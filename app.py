@@ -367,8 +367,18 @@ def render_authenticated_app():
     
     # Handle upgrade modal
     from billing.upgrade_ui import upgrade_ui
+    from billing.payment_form import payment_form
+    
     if st.session_state.get('show_upgrade_modal', False):
         upgrade_ui.render_upgrade_modal(user, st.session_state.get('target_plan'))
+    
+    # Handle payment form
+    if st.session_state.get('show_payment_form', False):
+        payment_form.render_payment_form(user, st.session_state.get('payment_plan'))
+    
+    # Handle payment success/failure
+    payment_form.render_payment_success()
+    payment_form.render_payment_failed()
     
     # Route to appropriate function
     if mode == "🎯 Single Analysis":

@@ -350,12 +350,11 @@ class UpgradeUI:
             source_plan=subscription_service.get_user_subscription(user.id).plan.plan_type.value
         )
         
-        # In a real implementation, this would redirect to Stripe checkout
-        st.success(f"Redirecting to checkout for {target_plan.value} plan...")
-        
-        # For demo purposes, simulate successful upgrade
-        st.session_state.simulated_upgrade = target_plan
-        st.session_state.show_upgrade_success = True
+        # Show payment form
+        st.session_state.show_payment_form = True
+        st.session_state.payment_plan = target_plan
+        st.session_state.show_upgrade_modal = False
+        st.rerun()
     
     def _handle_trial_click(self, user: User, target_plan: PlanType):
         """Handle trial button click"""
