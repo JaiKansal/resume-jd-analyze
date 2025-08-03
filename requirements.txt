@@ -12,5 +12,8 @@ pdfplumber
 razorpay
 stripe
 
+# Database support
+psycopg2-binary
+
 # Basic utilities
 bcrypt
