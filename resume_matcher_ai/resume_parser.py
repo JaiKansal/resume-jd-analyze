@@ -1,12 +1,27 @@
 """
 Resume parsing functionality for extracting text from PDF files
 """
+# Try multiple PDF processing libraries for better compatibility
 try:
     import fitz  # PyMuPDF
     PYMUPDF_AVAILABLE = True
 except ImportError:
     PYMUPDF_AVAILABLE = False
     fitz = None
+
+try:
+    import PyPDF2
+    PYPDF2_AVAILABLE = True
+except ImportError:
+    PYPDF2_AVAILABLE = False
+    PyPDF2 = None
+
+try:
+    import pdfplumber
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    PDFPLUMBER_AVAILABLE = False
+    pdfplumber = None
 
 import re
 import os
@@ -15,7 +30,7 @@ from typing import Optional
 
 def extract_text_from_pdf(file_path: str) -> str:
     """
-    Extract text from PDF resume using PyMuPDF
+    Extract text from PDF resume using multiple PDF processing libraries
     
     Args:
         file_path: Path to the PDF file
@@ -29,15 +44,50 @@ def extract_text_from_pdf(file_path: str) -> str:
         PermissionError: If the file cannot be accessed due to permissions
         Exception: For other PDF processing errors
     """
-    # Check if PyMuPDF is available
-    if not PYMUPDF_AVAILABLE:
-        raise ImportError(
-            "PyMuPDF (fitz) is not installed. Please install it with: pip install PyMuPDF\n"
-            "This library is required for PDF text extraction."
-        )
-    
     # Comprehensive file validation
     _validate_pdf_file_comprehensive(file_path)
+    
+    # Try different PDF processing libraries in order of preference
+    extraction_errors = []
+    
+    # Try PyMuPDF first (best quality)
+    if PYMUPDF_AVAILABLE:
+        try:
+            return _extract_with_pymupdf(file_path)
+        except Exception as e:
+            extraction_errors.append(f"PyMuPDF failed: {str(e)}")
+    
+    # Try pdfplumber second (good for complex layouts)
+    if PDFPLUMBER_AVAILABLE:
+        try:
+            return _extract_with_pdfplumber(file_path)
+        except Exception as e:
+            extraction_errors.append(f"pdfplumber failed: {str(e)}")
+    
+    # Try PyPDF2 as last resort (basic but reliable)
+    if PYPDF2_AVAILABLE:
+        try:
+            return _extract_with_pypdf2(file_path)
+        except Exception as e:
+            extraction_errors.append(f"PyPDF2 failed: {str(e)}")
+    
+    # If all methods failed
+    error_msg = f"Failed to extract text from PDF: {file_path}\n"
+    error_msg += "All PDF processing methods failed:\n"
+    for error in extraction_errors:
+        error_msg += f"• {error}\n"
+    
+    if not any([PYMUPDF_AVAILABLE, PDFPLUMBER_AVAILABLE, PYPDF2_AVAILABLE]):
+        error_msg += "\nNo PDF processing libraries are available. Please install one of:\n"
+        error_msg += "• pip install PyMuPDF\n"
+        error_msg += "• pip install pdfplumber\n"
+        error_msg += "• pip install PyPDF2\n"
+    
+    raise Exception(error_msg)
+
+
+def _extract_with_pymupdf(file_path: str) -> str:
+    """Extract text using PyMuPDF (fitz)"""
     
     try:
         # Open the PDF document with error handling
@@ -126,6 +176,56 @@ def extract_text_from_pdf(file_path: str) -> str:
             f"Error: {str(e)}\n"
             f"Please try with a different PDF file or contact support if the problem persists."
         )
+
+
+def _extract_with_pdfplumber(file_path: str) -> str:
+    """Extract text using pdfplumber"""
+    text_content = []
+    
+    with pdfplumber.open(file_path) as pdf:
+        if len(pdf.pages) == 0:
+            raise ValueError(f"PDF file has no pages: {file_path}")
+        
+        for page in pdf.pages:
+            text = page.extract_text()
+            if text and text.strip():
+                text_content.append(text)
+    
+    full_text = "\n".join(text_content)
+    
+    if not full_text.strip():
+        raise ValueError(f"No text could be extracted from PDF: {file_path}")
+    
+    if len(full_text.strip()) < 50:
+        raise ValueError(f"Extracted text is too short: {file_path}")
+    
+    return full_text
+
+
+def _extract_with_pypdf2(file_path: str) -> str:
+    """Extract text using PyPDF2"""
+    text_content = []
+    
+    with open(file_path, 'rb') as file:
+        pdf_reader = PyPDF2.PdfReader(file)
+        
+        if len(pdf_reader.pages) == 0:
+            raise ValueError(f"PDF file has no pages: {file_path}")
+        
+        for page in pdf_reader.pages:
+            text = page.extract_text()
+            if text and text.strip():
+                text_content.append(text)
+    
+    full_text = "\n".join(text_content)
+    
+    if not full_text.strip():
+        raise ValueError(f"No text could be extracted from PDF: {file_path}")
+    
+    if len(full_text.strip()) < 50:
+        raise ValueError(f"Extracted text is too short: {file_path}")
+    
+    return full_text
 
 
 def _validate_pdf_file_comprehensive(file_path: str) -> None:
