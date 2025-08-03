@@ -1,14 +1,7 @@
 """
 Resume parsing functionality for extracting text from PDF files
 """
-# Try multiple PDF processing libraries for better compatibility
-try:
-    import fitz  # PyMuPDF
-    PYMUPDF_AVAILABLE = True
-except ImportError:
-    PYMUPDF_AVAILABLE = False
-    fitz = None
-
+# Try lightweight PDF processing libraries for Streamlit Cloud compatibility
 try:
     import PyPDF2
     PYPDF2_AVAILABLE = True
@@ -22,6 +15,10 @@ try:
 except ImportError:
     PDFPLUMBER_AVAILABLE = False
     pdfplumber = None
+
+# PyMuPDF disabled for Streamlit Cloud compatibility
+PYMUPDF_AVAILABLE = False
+fitz = None
 
 import re
 import os

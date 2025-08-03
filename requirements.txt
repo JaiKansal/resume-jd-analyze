@@ -1,24 +1,16 @@
-# Core dependencies for Resume Matcher AI
-PyMuPDF==1.22.5
-requests==2.31.0
+# Minimal dependencies for fast Streamlit Cloud deployment
+streamlit
+requests
+pandas
+python-dotenv
 
-# Alternative PDF processing (fallback)
-pypdf2==3.0.1
-pdfplumber==0.9.0
+# PDF processing (lightweight alternatives)
+pypdf2
+pdfplumber
 
-# Web application dependencies
-streamlit==1.28.1
-pandas==2.0.3
-plotly==5.15.0
-reportlab==4.0.4
+# Payment processing
+razorpay
+stripe
 
-# Database dependencies (lighter version for Streamlit Cloud)
-bcrypt==4.0.1
-
-# Payment processing dependencies
-stripe==5.5.0
-razorpay==1.3.0
-python-dotenv==1.0.0
-
-# Additional dependencies for enhanced functionality
-typing-extensions==4.7.1
+# Basic utilities
+bcrypt
