@@ -40,7 +40,13 @@ except ImportError:
     print("⚠️  ReportLab not available. PDF generation will be disabled.")
 
 # Import our core functionality
-from resume_matcher_ai.matcher import analyze_match
+try:
+    # Try to use advanced matcher if available
+    from resume_matcher_ai.matcher import analyze_match
+except ImportError:
+    # Fallback to protected matcher for public deployment
+    from resume_matcher_ai.protected_matcher import analyze_match_protected as analyze_match
+
 from resume_matcher_ai.resume_parser import extract_text_from_pdf, clean_resume_text
 from resume_matcher_ai.jd_parser import parse_jd_text
 from resume_matcher_ai.utils import setup_environment, get_usage_statistics
