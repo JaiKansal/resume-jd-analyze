@@ -18,13 +18,18 @@ class DatabaseConfig:
     """Database configuration management"""
     
     def __init__(self):
-        self.database_url = os.getenv('DATABASE_URL')
-        self.db_type = os.getenv('DB_TYPE', 'sqlite')  # sqlite or postgresql
+        self.database_url = os.getenv('DATABASE_URL', 'sqlite:///data/app.db')
         
-        # SQLite configuration (development)
-        self.sqlite_path = os.getenv('SQLITE_PATH', 'data/app.db')
+        # Determine database type from URL
+        if self.database_url.startswith('postgresql://') or self.database_url.startswith('postgres://'):
+            self.db_type = 'postgresql'
+        else:
+            self.db_type = 'sqlite'
         
-        # PostgreSQL configuration (production)
+        # SQLite configuration (Streamlit Cloud default)
+        self.sqlite_path = 'data/app.db'
+        
+        # PostgreSQL configuration (if needed)
         self.pg_host = os.getenv('DB_HOST', 'localhost')
         self.pg_port = os.getenv('DB_PORT', '5432')
         self.pg_name = os.getenv('DB_NAME', 'resume_analyzer')
@@ -76,21 +81,27 @@ class DatabaseManager:
     
     def _get_postgresql_connection(self):
         """Create PostgreSQL connection"""
-        if self.config.database_url:
-            return psycopg2.connect(
-                self.config.database_url,
-                cursor_factory=RealDictCursor
-            )
-        else:
-            params = self.config.get_connection_params()
-            return psycopg2.connect(
-                host=params['host'],
-                port=params['port'],
-                database=params['database'],
-                user=params['user'],
-                password=params['password'],
-                cursor_factory=RealDictCursor
-            )
+        try:
+            if self.config.database_url:
+                return psycopg2.connect(
+                    self.config.database_url,
+                    cursor_factory=RealDictCursor
+                )
+            else:
+                params = self.config.get_connection_params()
+                return psycopg2.connect(
+                    host=params['host'],
+                    port=params['port'],
+                    database=params['database'],
+                    user=params['user'],
+                    password=params['password'],
+                    cursor_factory=RealDictCursor
+                )
+        except Exception as e:
+            logger.warning(f"PostgreSQL connection failed: {e}. Falling back to SQLite.")
+            # Fallback to SQLite if PostgreSQL fails
+            self.config.db_type = 'sqlite'
+            return self._get_sqlite_connection()
     
     def _get_sqlite_connection(self):
         """Create SQLite connection"""
