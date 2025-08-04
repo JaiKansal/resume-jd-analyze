@@ -72,8 +72,14 @@ class UserService:
     
     def get_user_by_email(self, email: str) -> Optional[User]:
         """Get user by email"""
-        query = "SELECT * FROM users WHERE email = ? AND is_active = TRUE"
-        result = self.db.get_single_result(query, (email.lower().strip(),))
+        # Try with is_active first, fallback to simple query if column doesn't exist
+        try:
+            query = "SELECT * FROM users WHERE email = ? AND is_active = TRUE"
+            result = self.db.get_single_result(query, (email.lower().strip(),))
+        except Exception as e:
+            # Fallback to simple query without is_active check
+            query = "SELECT * FROM users WHERE email = ?"
+            result = self.db.get_single_result(query, (email.lower().strip(),))
         
         if result:
             return self._row_to_user(result)

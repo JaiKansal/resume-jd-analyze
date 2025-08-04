@@ -34,6 +34,7 @@ def create_minimal_database():
                 role TEXT DEFAULT 'user',
                 country TEXT DEFAULT 'IN',
                 is_verified BOOLEAN DEFAULT FALSE,
+                is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -99,6 +100,8 @@ def ensure_database_exists():
                 cursor = conn.cursor()
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
                 if cursor.fetchone():
+                    # Database exists, run migration to add missing columns
+                    _run_migrations()
                     logger.info("Database already exists and is functional")
                     return True
         
@@ -109,6 +112,14 @@ def ensure_database_exists():
         logger.error(f"Database check failed: {e}")
         # Try to create from scratch
         return create_minimal_database()
+
+def _run_migrations():
+    """Run database migrations"""
+    try:
+        from database.migrate_add_is_active import add_is_active_column
+        add_is_active_column()
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
 
 # Auto-run when imported
 if __name__ != "__main__":

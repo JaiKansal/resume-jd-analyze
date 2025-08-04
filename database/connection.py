@@ -148,9 +148,10 @@ class DatabaseManager:
                 else:
                     return [dict(row) for row in cursor.fetchall()]
         except sqlite3.OperationalError as e:
-            if "no such table" in str(e).lower():
+            error_msg = str(e).lower()
+            if "no such table" in error_msg or "no such column" in error_msg:
                 # Force database initialization and retry
-                logger.warning(f"Table missing, initializing database: {e}")
+                logger.warning(f"Database schema issue, reinitializing: {e}")
                 self._force_database_initialization()
                 # Retry the query
                 with self.get_connection() as conn:
@@ -158,6 +159,7 @@ class DatabaseManager:
                     cursor.execute(query, params or ())
                     return [dict(row) for row in cursor.fetchall()]
             else:
+                logger.error(f"Database error: {e}")
                 raise
     
     def execute_command(self, command: str, params: Optional[tuple] = None) -> int:
@@ -169,9 +171,10 @@ class DatabaseManager:
                 conn.commit()
                 return cursor.rowcount
         except sqlite3.OperationalError as e:
-            if "no such table" in str(e).lower():
+            error_msg = str(e).lower()
+            if "no such table" in error_msg or "no such column" in error_msg:
                 # Force database initialization and retry
-                logger.warning(f"Table missing, initializing database: {e}")
+                logger.warning(f"Database schema issue, reinitializing: {e}")
                 self._force_database_initialization()
                 # Retry the command
                 with self.get_connection() as conn:
@@ -180,6 +183,7 @@ class DatabaseManager:
                     conn.commit()
                     return cursor.rowcount
             else:
+                logger.error(f"Database error: {e}")
                 raise
     
     def execute_many(self, command: str, params_list: List[tuple]) -> int:

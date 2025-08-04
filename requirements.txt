@@ -7,6 +7,7 @@ python-dotenv
 # PDF processing (lightweight alternatives)
 pypdf2
 pdfplumber
+reportlab
 
 # Payment processing
 razorpay
