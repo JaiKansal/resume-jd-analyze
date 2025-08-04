@@ -166,9 +166,22 @@ class EnhancedRazorpayService:
                     """)
                 elif self.status == "sdk_missing":
                     st.markdown("""
-                    **Fix Required**: Install Razorpay SDK
+                    **Fix Required**: Razorpay SDK Missing
                     
-                    Run: `pip install razorpay`
+                    **For Streamlit Cloud:**
+                    1. The `razorpay` package should be in `requirements.txt`
+                    2. If still missing, try restarting your app
+                    3. Check the app logs for installation errors
+                    
+                    **For Local Development:**
+                    ```bash
+                    pip install razorpay>=1.3.0
+                    ```
+                    
+                    **Current Status:**
+                    - Requirements.txt includes: `razorpay>=1.3.0`
+                    - This should install automatically on Streamlit Cloud
+                    - If issue persists, contact Streamlit support
                     """)
     
     def create_payment_link(self, amount: int, description: str, 
