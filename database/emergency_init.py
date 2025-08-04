@@ -33,7 +33,15 @@ def emergency_database_setup():
                 phone TEXT DEFAULT '',
                 role TEXT DEFAULT 'user',
                 country TEXT DEFAULT 'IN',
+                timezone TEXT DEFAULT 'Asia/Kolkata',
                 is_verified BOOLEAN DEFAULT FALSE,
+                email_verified BOOLEAN DEFAULT FALSE,
+                email_verification_token TEXT,
+                password_reset_token TEXT,
+                password_reset_expires TIMESTAMP,
+                last_login TIMESTAMP,
+                login_count INTEGER DEFAULT 0,
+                is_active BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
