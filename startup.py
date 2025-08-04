@@ -19,14 +19,14 @@ def ensure_startup_requirements():
         data_dir.mkdir(exist_ok=True)
         logger.info("Data directory ensured")
         
-        # 2. Initialize database
-        from database.init_database import init_database_for_streamlit
-        init_success = init_database_for_streamlit()
+        # 2. Initialize database with health check
+        from database.health_check import check_and_fix_database
+        db_success = check_and_fix_database()
         
-        if init_success:
-            logger.info("Database initialized successfully")
+        if db_success:
+            logger.info("Database health check and initialization successful")
         else:
-            logger.warning("Database initialization had issues")
+            logger.error("Database health check failed")
         
         # 3. Check environment variables
         required_vars = ['PERPLEXITY_API_KEY', 'RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET']

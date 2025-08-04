@@ -124,24 +124,174 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}")
     
+    def _force_database_initialization(self):
+        """Force database initialization when tables are missing"""
+        try:
+            import sqlite3
+            from pathlib import Path
+            
+            # Ensure data directory exists
+            data_dir = Path('data')
+            data_dir.mkdir(exist_ok=True)
+            
+            db_path = 'data/app.db'
+            
+            # Create database with all required tables
+            with sqlite3.connect(db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Enable foreign keys
+                cursor.execute("PRAGMA foreign_keys = ON")
+                
+                # Create users table
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    first_name TEXT,
+                    last_name TEXT,
+                    company_name TEXT,
+                    phone TEXT,
+                    role TEXT DEFAULT 'user',
+                    country TEXT DEFAULT 'IN',
+                    is_verified BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """)
+                
+                # Create subscriptions table
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS subscriptions (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    plan_type TEXT NOT NULL DEFAULT 'free',
+                    status TEXT NOT NULL DEFAULT 'active',
+                    current_period_start TIMESTAMP,
+                    current_period_end TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """)
+                
+                # Create subscription plans table
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS subscription_plans (
+                    id TEXT PRIMARY KEY,
+                    plan_type TEXT UNIQUE NOT NULL,
+                    name TEXT NOT NULL,
+                    price_monthly REAL NOT NULL,
+                    price_annual REAL NOT NULL,
+                    features TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """)
+                
+                # Create usage tracking table
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS usage_tracking (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    analysis_count INTEGER DEFAULT 0,
+                    period_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    period_end TIMESTAMP,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """)
+                
+                # Create analysis sessions table
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS analysis_sessions (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    resume_filename TEXT,
+                    job_description TEXT,
+                    analysis_result TEXT,
+                    score INTEGER,
+                    match_category TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """)
+                
+                # Create payment records table
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS payment_records (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    razorpay_payment_id TEXT,
+                    amount INTEGER NOT NULL,
+                    currency TEXT DEFAULT 'INR',
+                    status TEXT NOT NULL,
+                    plan_type TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """)
+                
+                # Create user sessions table
+                cursor.execute("""
+                CREATE TABLE IF NOT EXISTS user_sessions (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    session_token TEXT UNIQUE NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """)
+                
+                conn.commit()
+                logger.info("Database force-initialized successfully")
+                
+        except Exception as e:
+            logger.error(f"Failed to force initialize database: {e}")
+            raise
+    
     def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
         """Execute a SELECT query and return results"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(query, params or ())
-            
-            if self.config.db_type == 'postgresql' or self.config.database_url:
-                return [dict(row) for row in cursor.fetchall()]
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(query, params or ())
+                
+                if self.config.db_type == 'postgresql' or self.config.database_url:
+                    return [dict(row) for row in cursor.fetchall()]
+                else:
+                    return [dict(row) for row in cursor.fetchall()]
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                # Force database initialization and retry
+                logger.warning(f"Table missing, initializing database: {e}")
+                self._force_database_initialization()
+                # Retry the query
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(query, params or ())
+                    return [dict(row) for row in cursor.fetchall()]
             else:
-                return [dict(row) for row in cursor.fetchall()]
+                raise
     
     def execute_command(self, command: str, params: Optional[tuple] = None) -> int:
         """Execute an INSERT, UPDATE, or DELETE command"""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(command, params or ())
-            conn.commit()
-            return cursor.rowcount
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(command, params or ())
+                conn.commit()
+                return cursor.rowcount
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e).lower():
+                # Force database initialization and retry
+                logger.warning(f"Table missing, initializing database: {e}")
+                self._force_database_initialization()
+                # Retry the command
+                with self.get_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute(command, params or ())
+                    conn.commit()
+                    return cursor.rowcount
+            else:
+                raise
     
     def execute_many(self, command: str, params_list: List[tuple]) -> int:
         """Execute multiple commands with different parameters"""
