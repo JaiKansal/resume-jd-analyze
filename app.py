@@ -14,6 +14,7 @@ import zipfile
 import pandas as pd
 import json
 import time
+import os
 from datetime import datetime
 from pathlib import Path
 import base64
@@ -689,6 +690,25 @@ def render_single_analysis_authenticated(user, subscription):
         if resume_file and jd_text.strip():
             with st.spinner("🔄 Analyzing compatibility... This may take up to 30 seconds."):
                 start_time = time.time()
+                
+                # Extract resume text for storage
+                try:
+                    # Save uploaded file temporarily to extract text
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                        tmp_file.write(resume_file.getvalue())
+                        tmp_path = tmp_file.name
+                    
+                    # Extract text from PDF
+                    resume_text = extract_text_from_pdf(tmp_path)
+                    
+                    # Clean up temp file
+                    os.unlink(tmp_path)
+                    
+                except Exception as e:
+                    # Fallback to basic text extraction
+                    resume_text = f"Resume content from {resume_file.name}"
+                    logger.warning(f"Failed to extract resume text: {e}")
+                
                 result, error = analyze_single_resume(resume_file, jd_text)
                 processing_time = time.time() - start_time
                 
@@ -1196,6 +1216,24 @@ def render_single_analysis():
     if st.button("🚀 Analyze Compatibility", type="primary", use_container_width=True):
         if resume_file and jd_text.strip():
             with st.spinner("🔄 Analyzing compatibility... This may take up to 30 seconds."):
+                # Extract resume text for storage
+                try:
+                    # Save uploaded file temporarily to extract text
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                        tmp_file.write(resume_file.getvalue())
+                        tmp_path = tmp_file.name
+                    
+                    # Extract text from PDF
+                    resume_text = extract_text_from_pdf(tmp_path)
+                    
+                    # Clean up temp file
+                    os.unlink(tmp_path)
+                    
+                except Exception as e:
+                    # Fallback to basic text extraction
+                    resume_text = f"Resume content from {resume_file.name}"
+                    logger.warning(f"Failed to extract resume text: {e}")
+                
                 result, error = analyze_single_resume(resume_file, jd_text)
                 
                 if result:
@@ -1206,7 +1244,7 @@ def render_single_analysis():
                     analysis_id = save_analysis_with_history(
                         user_id=user.id,
                         resume_filename=resume_file.name,
-                        resume_content=resume_file.read().decode('utf-8') if hasattr(resume_file, 'read') else str(resume_file),
+                        resume_content=resume_text,
                         job_description=jd_text,
                         analysis_result=result.__dict__ if hasattr(result, '__dict__') else result,
                         processing_time=getattr(result, 'processing_time', 0)
