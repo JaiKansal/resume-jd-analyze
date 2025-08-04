@@ -19,9 +19,9 @@ def ensure_startup_requirements():
         data_dir.mkdir(exist_ok=True)
         logger.info("Data directory ensured")
         
-        # 2. Initialize database with simple approach
-        from database.simple_init import ensure_database_exists
-        db_success = ensure_database_exists()
+        # 2. Initialize database with emergency approach
+        from database.emergency_init import emergency_database_setup
+        db_success = emergency_database_setup()
         
         if db_success:
             logger.info("Database initialization successful")

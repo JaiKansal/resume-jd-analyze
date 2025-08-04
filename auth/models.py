@@ -38,6 +38,7 @@ def parse_datetime(dt_value: Union[str, datetime, None]) -> Optional[datetime]:
     return None
 
 class UserRole(Enum):
+    USER = "user"
     INDIVIDUAL = "individual"
     HR_MANAGER = "hr_manager"
     ADMIN = "admin"

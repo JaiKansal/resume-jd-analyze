@@ -127,10 +127,10 @@ class DatabaseManager:
     def _force_database_initialization(self):
         """Force database initialization when tables are missing"""
         try:
-            from database.simple_init import create_minimal_database
-            success = create_minimal_database()
+            from database.emergency_init import emergency_database_setup
+            success = emergency_database_setup()
             if not success:
-                raise Exception("Failed to create minimal database")
+                raise Exception("Failed to create emergency database")
             logger.info("Database force-initialized successfully")
         except Exception as e:
             logger.error(f"Failed to force initialize database: {e}")

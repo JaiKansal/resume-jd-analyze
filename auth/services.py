@@ -72,14 +72,9 @@ class UserService:
     
     def get_user_by_email(self, email: str) -> Optional[User]:
         """Get user by email"""
-        # Try with is_active first, fallback to simple query if column doesn't exist
-        try:
-            query = "SELECT * FROM users WHERE email = ? AND is_active = TRUE"
-            result = self.db.get_single_result(query, (email.lower().strip(),))
-        except Exception as e:
-            # Fallback to simple query without is_active check
-            query = "SELECT * FROM users WHERE email = ?"
-            result = self.db.get_single_result(query, (email.lower().strip(),))
+        # Use simple query without is_active dependency
+        query = "SELECT * FROM users WHERE email = ?"
+        result = self.db.get_single_result(query, (email.lower().strip(),))
         
         if result:
             return self._row_to_user(result)
@@ -177,33 +172,28 @@ class UserService:
     def _row_to_user(self, row: Dict[str, Any]) -> User:
         """Convert database row to User object"""
         from datetime import datetime
-        
-        # Parse datetime strings if needed
-        def parse_datetime(dt_str):
-            if dt_str and isinstance(dt_str, str):
-                return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
-            return dt_str
+        from auth.models import parse_datetime
         
         return User(
             id=row['id'],
             email=row['email'],
             password_hash=row['password_hash'],
-            first_name=row['first_name'],
-            last_name=row['last_name'],
-            company_name=row['company_name'],
-            role=UserRole(row['role']),
-            phone=row['phone'],
-            country=row['country'],
-            timezone=row['timezone'],
-            email_verified=bool(row['email_verified']),
-            email_verification_token=row['email_verification_token'],
-            password_reset_token=row['password_reset_token'],
-            password_reset_expires=parse_datetime(row['password_reset_expires']),
-            last_login=parse_datetime(row['last_login']),
-            login_count=row['login_count'],
-            is_active=bool(row['is_active']),
-            created_at=parse_datetime(row['created_at']),
-            updated_at=parse_datetime(row['updated_at'])
+            first_name=row.get('first_name', ''),
+            last_name=row.get('last_name', ''),
+            company_name=row.get('company_name', ''),
+            role=UserRole(row.get('role', 'user')),
+            phone=row.get('phone', ''),
+            country=row.get('country', 'IN'),
+            timezone=row.get('timezone', 'Asia/Kolkata'),
+            email_verified=bool(row.get('is_verified', False)),
+            email_verification_token=row.get('email_verification_token'),
+            password_reset_token=row.get('password_reset_token'),
+            password_reset_expires=parse_datetime(row.get('password_reset_expires')),
+            last_login=parse_datetime(row.get('last_login')),
+            login_count=row.get('login_count', 0),
+            is_active=bool(row.get('is_active', True)),
+            created_at=parse_datetime(row.get('created_at')),
+            updated_at=parse_datetime(row.get('updated_at'))
         )
 
 class SubscriptionService:
@@ -223,14 +213,9 @@ class SubscriptionService:
     
     def get_all_plans(self) -> List[SubscriptionPlan]:
         """Get all active subscription plans"""
-        try:
-            # Try with is_active column first
-            query = "SELECT * FROM subscription_plans WHERE is_active = TRUE ORDER BY price_monthly"
-            results = self.db.execute_query(query)
-        except Exception as e:
-            # Fallback to simple query without is_active
-            query = "SELECT * FROM subscription_plans ORDER BY price_monthly"
-            results = self.db.execute_query(query)
+        # Use simple query without is_active dependency
+        query = "SELECT * FROM subscription_plans ORDER BY price_monthly"
+        results = self.db.execute_query(query)
         
         return [self._row_to_plan(row) for row in results]
     
@@ -399,16 +384,30 @@ class SubscriptionService:
     def _row_to_plan(self, row: Dict[str, Any]) -> SubscriptionPlan:
         """Convert database row to SubscriptionPlan object"""
         import json
+        from auth.models import parse_datetime
         
         # Handle JSON features field
-        features = row['features']
+        features = row.get('features', '[]')
         if isinstance(features, str):
             try:
                 features = json.loads(features)
             except (json.JSONDecodeError, TypeError):
-                features = {}
-        elif not isinstance(features, dict):
-            features = {}
+                features = []
+        elif not isinstance(features, (dict, list)):
+            features = []
+        
+        # Convert features list to dict format expected by model
+        if isinstance(features, list):
+            features = {f"feature_{i}": feature for i, feature in enumerate(features)}
+        
+        # Set monthly analysis limits based on plan type
+        plan_type = row['plan_type']
+        if plan_type == 'free':
+            monthly_limit = 3
+        elif plan_type in ['professional', 'business', 'enterprise']:
+            monthly_limit = -1  # Unlimited
+        else:
+            monthly_limit = row.get('monthly_analysis_limit', 3)
         
         return SubscriptionPlan(
             id=row['id'],
@@ -416,10 +415,10 @@ class SubscriptionService:
             plan_type=PlanType(row['plan_type']),
             price_monthly=float(row['price_monthly']),
             price_annual=float(row['price_annual']),
-            monthly_analysis_limit=row['monthly_analysis_limit'],
+            monthly_analysis_limit=monthly_limit,
             features=features,
-            is_active=bool(row['is_active']),
-            created_at=row['created_at']
+            is_active=row.get('is_active', True),
+            created_at=parse_datetime(row.get('created_at'))
         )
     
     def _row_to_subscription(self, row: Dict[str, Any]) -> Subscription:
