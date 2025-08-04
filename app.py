@@ -1093,7 +1093,9 @@ def render_settings_authenticated(user, subscription):
         st.info(f"""
         **Current Plan:** {subscription.plan.name if subscription and subscription.plan else "Free"}
         **Status:** {subscription.status.value.title()}
-        **Monthly Analyses:** {'Unlimited' if subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 == -1 else f"{subscription.monthly_analysis_used}/{subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0}"}
+        **Monthly Analyses:** {'Unlimited'
+    if subscription and subscription.plan and subscription.plan.monthly_analysis_limit == -1
+    else f"{subscription.monthly_analysis_used}/{subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0}"}
         """)
     
     with col2:
