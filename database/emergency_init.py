@@ -1,6 +1,6 @@
 """
-Emergency Database Initialization
-Ultra-simple database setup that works on any environment
+Emergency Database Initialization - COMPLETE VERSION
+Ultra-simple database setup that works on any environment with ALL required tables
 """
 
 import sqlite3
@@ -108,7 +108,79 @@ def emergency_database_setup():
                 analysis_result TEXT DEFAULT '',
                 score INTEGER DEFAULT 0,
                 match_category TEXT DEFAULT '',
+                processing_time_seconds REAL DEFAULT 0,
+                api_cost_usd REAL DEFAULT 0,
+                tokens_used INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'completed',
+                session_type TEXT DEFAULT 'single',
+                metadata TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            
+            # Create engagement_events table (MISSING!)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS engagement_events (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                event_data TEXT,
+                page_path TEXT,
+                session_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            
+            # Create analytics_events table (MISSING!)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS analytics_events (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                event_name TEXT NOT NULL,
+                event_properties TEXT,
+                session_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            
+            # Create payment_records table (MISSING!)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS payment_records (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'INR',
+                status TEXT NOT NULL,
+                payment_method TEXT,
+                razorpay_payment_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            
+            # Create usage_tracking table (MISSING!)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS usage_tracking (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                analysis_count INTEGER DEFAULT 0,
+                period_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                period_end TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            
+            # Create report_downloads table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS report_downloads (
+                id TEXT PRIMARY KEY,
+                analysis_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                report_type TEXT NOT NULL,
+                report_format TEXT NOT NULL,
+                download_count INTEGER DEFAULT 1,
+                first_downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_downloaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """)
             
@@ -118,6 +190,11 @@ def emergency_database_setup():
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_engagement_events_user_id ON engagement_events(user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_analytics_events_user_id ON analytics_events(user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_payment_records_user_id ON payment_records(user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_usage_tracking_user_id ON usage_tracking(user_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_report_downloads_user_id ON report_downloads(user_id)")
             
             # Insert default plans
             cursor.execute("""

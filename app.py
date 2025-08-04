@@ -145,6 +145,46 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+
+def get_subscription_with_fallback(user_id):
+    """Get subscription with fallback to free plan"""
+    try:
+        subscription = subscription_service.get_user_subscription(user_id)
+        if subscription:
+            return subscription
+        
+        # Create default free subscription if none exists
+        free_plan = subscription_service.get_plan_by_type(PlanType.FREE)
+        if free_plan:
+            return subscription_service.create_subscription(user_id, free_plan.id)
+        
+        # Return mock subscription as last resort
+        from auth.models import Subscription, SubscriptionPlan, SubscriptionStatus, PlanType
+        mock_plan = SubscriptionPlan(
+            id='plan_free',
+            name='Free',
+            plan_type=PlanType.FREE,
+            price_monthly=0,
+            price_annual=0,
+            monthly_analysis_limit=3,
+            features={},
+            is_active=True
+        )
+        mock_subscription = Subscription(
+            id='mock_sub',
+            user_id=user_id,
+            plan_id='plan_free',
+            status=SubscriptionStatus.ACTIVE,
+            monthly_analysis_used=0
+        )
+        mock_subscription.plan = mock_plan
+        return mock_subscription
+        
+    except Exception as e:
+        logger.error(f"Failed to get subscription: {e}")
+        return None
+
+
 def initialize_session_state():
     """Initialize session state variables"""
     if 'analysis_results' not in st.session_state:
@@ -391,7 +431,7 @@ def render_authenticated_app():
     render_authenticated_header(user)
     
     # Check subscription and usage limits
-    subscription = subscription_service.get_user_subscription(user.id)
+    subscription = get_subscription_with_fallback(user.id)
     if subscription:
         render_usage_info(subscription)
     
@@ -403,9 +443,9 @@ def render_authenticated_app():
     st.sidebar.markdown(f"👤 **{user.get_full_name()}**")
     st.sidebar.markdown(f"📧 {user.email}")
     if subscription:
-        st.sidebar.markdown(f"💳 {subscription.plan.name}")
-        if subscription.plan.monthly_analysis_limit != -1:
-            remaining = subscription.plan.monthly_analysis_limit - subscription.monthly_analysis_used
+        st.sidebar.markdown(f"💳 {subscription.plan.name if subscription and subscription.plan else "Free"}")
+        if subscription and subscription.plan and subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 != -1:
+            remaining = subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 - subscription.monthly_analysis_used
             st.sidebar.markdown(f"📊 {remaining} analyses remaining")
     
     # Logout button
@@ -508,7 +548,7 @@ def render_authenticated_header(user):
     
     with col2:
         # Quick stats or upgrade prompt
-        subscription = subscription_service.get_user_subscription(user.id)
+        subscription = get_subscription_with_fallback(user.id)
         if subscription and subscription.plan.plan_type.value == 'free':
             st.markdown("""
             <div style="background: #fff3cd; padding: 1rem; border-radius: 10px; text-align: center; margin-top: 2rem;">
@@ -519,9 +559,9 @@ def render_authenticated_header(user):
 
 def render_usage_info(subscription):
     """Render usage information for the user"""
-    if subscription.plan.monthly_analysis_limit != -1:
+    if subscription and subscription.plan and subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 != -1:
         used = subscription.monthly_analysis_used
-        limit = subscription.plan.monthly_analysis_limit
+        limit = subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0
         remaining = limit - used
         
         if remaining <= 0:
@@ -693,7 +733,7 @@ def render_bulk_analysis_authenticated(user, subscription):
     from billing.upgrade_ui import upgrade_ui
     
     # Check if user has bulk analysis feature
-    if not subscription.plan.has_feature('bulk_upload'):
+    if not subscription or not subscription.plan or not hasattr(subscription.plan, 'has_feature') or not subscription.plan.has_feature('bulk_upload'):
         # Show feature gate prompt
         upgrade_ui.render_feature_gate_prompt(user, "bulk_upload")
         return
@@ -943,8 +983,8 @@ def render_dashboard_authenticated(user, subscription):
     with col3:
         st.metric("Avg Processing Time", f"{usage_stats['avg_processing_time']:.1f}s")
     with col4:
-        if subscription.plan.monthly_analysis_limit != -1:
-            remaining = subscription.plan.monthly_analysis_limit - subscription.monthly_analysis_used
+        if subscription and subscription.plan and subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 != -1:
+            remaining = subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 - subscription.monthly_analysis_used
             st.metric("Remaining This Month", remaining)
         else:
             st.metric("Plan", "Unlimited")
@@ -969,9 +1009,9 @@ def render_dashboard_authenticated(user, subscription):
     
     with col1:
         st.info(f"""
-        **Plan:** {subscription.plan.name}
+        **Plan:** {subscription.plan.name if subscription and subscription.plan else "Free"}
         **Status:** {subscription.status.value.title()}
-        **Monthly Limit:** {'Unlimited' if subscription.plan.monthly_analysis_limit == -1 else subscription.plan.monthly_analysis_limit}
+        **Monthly Limit:** {'Unlimited' if subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 == -1 else subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0}
         **Used This Month:** {subscription.monthly_analysis_used}
         """)
     
@@ -1051,9 +1091,9 @@ def render_settings_authenticated(user, subscription):
     
     with col1:
         st.info(f"""
-        **Current Plan:** {subscription.plan.name}
+        **Current Plan:** {subscription.plan.name if subscription and subscription.plan else "Free"}
         **Status:** {subscription.status.value.title()}
-        **Monthly Analyses:** {'Unlimited' if subscription.plan.monthly_analysis_limit == -1 else f"{subscription.monthly_analysis_used}/{subscription.plan.monthly_analysis_limit}"}
+        **Monthly Analyses:** {'Unlimited' if subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 == -1 else f"{subscription.monthly_analysis_used}/{subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0}"}
         """)
     
     with col2:

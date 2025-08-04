@@ -606,12 +606,12 @@ class RegistrationFlow:
         st.balloons()
         
         st.markdown("### 🎉 Welcome to Resume + JD Analyzer!")
-        st.markdown(f"Hi **{user.first_name}**! Your account has been created successfully.")
+        st.markdown(f"Hi **{user.first_name if user and user.first_name else 'User'}**! Your account has been created successfully.")
         
         # Email verification notice
-        if not user.email_verified:
+        if user and not getattr(user, 'email_verified', False):
             st.info("📧 **Email Verification Required**")
-            st.markdown(f"We've sent a verification email to **{user.email}**. Please check your inbox and click the verification link to activate all features.")
+            st.markdown(f"We've sent a verification email to **{user.email if user and user.email else 'your email'}**. Please check your inbox and click the verification link to activate all features.")
         
         # Onboarding based on user type
         user_type = st.session_state.registration_data.get('user_type', 'individual')
