@@ -628,9 +628,10 @@ class RegistrationFlow:
         # Complete onboarding button
         if st.button("🚀 Start Using Resume + JD Analyzer", type="primary", use_container_width=True):
             # Track onboarding completion
-            self.track_conversion_event(user.id, 'onboarding_completed', {
-                'user_type': user_type
-            })
+            if user and hasattr(user, 'id'):
+                self.track_conversion_event(user.id, 'onboarding_completed', {
+                    'user_type': user_type
+                })
             
             # Clear registration data
             st.session_state.registration_data = {}
