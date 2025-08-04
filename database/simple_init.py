@@ -81,6 +81,31 @@ def create_minimal_database():
             )
             """)
             
+            # Create subscription plans table
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS subscription_plans (
+                id TEXT PRIMARY KEY,
+                plan_type TEXT UNIQUE NOT NULL,
+                name TEXT NOT NULL,
+                price_monthly REAL NOT NULL,
+                price_annual REAL NOT NULL,
+                features TEXT DEFAULT '',
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            
+            # Insert default plans
+            cursor.execute("""
+            INSERT OR IGNORE INTO subscription_plans 
+            (id, plan_type, name, price_monthly, price_annual, features, is_active)
+            VALUES 
+            ('plan_free', 'free', 'Free', 0, 0, '["3 analyses per month", "Basic reports", "PDF download"]', TRUE),
+            ('plan_professional', 'professional', 'Professional', 1499, 14990, '["Unlimited analyses", "Advanced AI insights", "All export formats"]', TRUE),
+            ('plan_business', 'business', 'Business', 7999, 79990, '["Everything in Professional", "Team collaboration", "Analytics dashboard"]', TRUE),
+            ('plan_enterprise', 'enterprise', 'Enterprise', 39999, 399990, '["Everything in Business", "Unlimited seats", "Custom integrations"]', TRUE)
+            """)
+            
             conn.commit()
             logger.info("Minimal database created successfully")
             return True

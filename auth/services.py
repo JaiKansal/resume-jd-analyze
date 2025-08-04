@@ -223,8 +223,14 @@ class SubscriptionService:
     
     def get_all_plans(self) -> List[SubscriptionPlan]:
         """Get all active subscription plans"""
-        query = "SELECT * FROM subscription_plans WHERE is_active = TRUE ORDER BY price_monthly"
-        results = self.db.execute_query(query)
+        try:
+            # Try with is_active column first
+            query = "SELECT * FROM subscription_plans WHERE is_active = TRUE ORDER BY price_monthly"
+            results = self.db.execute_query(query)
+        except Exception as e:
+            # Fallback to simple query without is_active
+            query = "SELECT * FROM subscription_plans ORDER BY price_monthly"
+            results = self.db.execute_query(query)
         
         return [self._row_to_plan(row) for row in results]
     
