@@ -463,8 +463,8 @@ def render_authenticated_app():
     st.sidebar.markdown(f"📧 {user.email}")
     if subscription:
         st.sidebar.markdown(f"💳 {subscription.plan.name if subscription and subscription.plan else "Free"}")
-        if subscription and subscription.plan and subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 != -1:
-            remaining = subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 - subscription.monthly_analysis_used
+        if subscription and subscription.plan and subscription.plan.monthly_analysis_limit != -1:
+            remaining = (subscription.plan.monthly_analysis_limit - subscription.monthly_analysis_used) if (subscription and subscription.plan and hasattr(subscription, "monthly_analysis_used")) else 0
             st.sidebar.markdown(f"📊 {remaining} analyses remaining")
     
     # Logout button
@@ -578,7 +578,7 @@ def render_authenticated_header(user):
 
 def render_usage_info(subscription):
     """Render usage information for the user"""
-    if subscription and subscription.plan and subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 != -1:
+    if subscription and subscription.plan and subscription.plan.monthly_analysis_limit != -1:
         used = subscription.monthly_analysis_used
         limit = subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0
         remaining = limit - used
@@ -590,10 +590,59 @@ def render_usage_info(subscription):
         elif remaining <= 3:
             st.info(f"📊 {remaining} analyses remaining this month.")
 
+
+def render_simple_analysis_history(user):
+    """Simple analysis history fallback using database directly"""
+    st.title("📊 Analysis History")
+    
+    try:
+        from database.connection import get_db
+        
+        db = get_db()
+        
+        # Get user's analysis history
+        query = """
+        SELECT id, resume_filename, score, match_category, created_at
+        FROM analysis_sessions 
+        WHERE user_id = ? 
+        ORDER BY created_at DESC 
+        LIMIT 50
+        """
+        
+        analyses = db.execute_query(query, (user.id,))
+        
+        if analyses:
+            st.success(f"Found {len(analyses)} previous analyses")
+            
+            for analysis in analyses:
+                with st.expander(f"📄 {analysis['resume_filename']} - {analysis['score']}% ({analysis['created_at'][:10]})"):
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Score", f"{analysis['score']}%")
+                    with col2:
+                        st.metric("Category", analysis['match_category'])
+                    with col3:
+                        st.metric("Date", analysis['created_at'][:10])
+                    
+                    if st.button(f"Re-download Report", key=f"download_{analysis['id']}"):
+                        st.info("💡 Re-download functionality coming soon!")
+        else:
+            st.info("📝 No analysis history found. Complete an analysis to see results here!")
+            
+    except Exception as e:
+        st.error(f"❌ Failed to load analysis history: {e}")
+        st.info("💡 Try refreshing the page or contact support if the issue persists.")
+
+
 def render_analysis_history(user):
     """Render analysis history page"""
     if ENHANCED_SERVICES_AVAILABLE:
-        report_history_ui.render_history_page(user)
+        try:
+            report_history_ui.render_history_page(user)
+        except Exception as e:
+            st.error(f"Enhanced history unavailable: {e}")
+            render_simple_analysis_history(user)
     else:
         # Fallback to session state history
         st.title("📊 Analysis History")
@@ -738,6 +787,14 @@ def render_single_analysis_authenticated(user, subscription):
                     st.success("✅ Analysis completed!")
                     render_analysis_result(result, resume_file.name)
                     
+                    # Track analysis usage count
+                    subscription_service.increment_user_usage(user.id, 1)
+                    
+                    # Refresh subscription to show updated usage count
+                    subscription = get_subscription_with_fallback(user.id)
+                    if subscription:
+                        st.rerun()
+                    
                     # Store result with enhanced history tracking
                     analysis_id = save_analysis_with_history(
                         user_id=user.id,
@@ -818,6 +875,9 @@ def render_bulk_analysis_authenticated(user, subscription):
                 result, error = analyze_single_resume(resume_file, jd_text)
                 if result:
                     results.append((resume_file.name, result))
+                    
+                    # Track analysis usage for each successful analysis
+                    subscription_service.increment_user_usage(user.id, 1)
                 else:
                     st.error(f"Failed to analyze {resume_file.name}: {error}")
                 
@@ -1021,8 +1081,8 @@ def render_dashboard_authenticated(user, subscription):
     with col3:
         st.metric("Avg Processing Time", f"{usage_stats['avg_processing_time']:.1f}s")
     with col4:
-        if subscription and subscription.plan and subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 != -1:
-            remaining = subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 - subscription.monthly_analysis_used
+        if subscription and subscription.plan and subscription.plan.monthly_analysis_limit != -1:
+            remaining = (subscription.plan.monthly_analysis_limit - subscription.monthly_analysis_used) if (subscription and subscription.plan and hasattr(subscription, "monthly_analysis_used")) else 0
             st.metric("Remaining This Month", remaining)
         else:
             st.metric("Plan", "Unlimited")
@@ -1240,6 +1300,9 @@ def render_single_analysis():
                     st.success("✅ Analysis completed!")
                     render_analysis_result(result, resume_file.name)
                     
+                    # Track analysis usage count
+                    subscription_service.increment_user_usage(user.id, 1)
+                    
                     # Store result with enhanced history tracking
                     analysis_id = save_analysis_with_history(
                         user_id=user.id,
@@ -1362,6 +1425,9 @@ def render_bulk_analysis():
                 result, error = analyze_single_resume(resume_file, jd_text)
                 if result:
                     results.append((resume_file.name, result))
+                    
+                    # Track analysis usage for each successful analysis
+                    subscription_service.increment_user_usage(user.id, 1)
                 else:
                     st.error(f"Failed to analyze {resume_file.name}: {error}")
                 
