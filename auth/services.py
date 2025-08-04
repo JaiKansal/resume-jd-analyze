@@ -185,7 +185,7 @@ class UserService:
             phone=row.get('phone', ''),
             country=row.get('country', 'IN'),
             timezone=row.get('timezone', 'Asia/Kolkata'),
-            email_verified=bool(row.get('is_verified', False)),
+            email_verified=bool(row.get('email_verified', row.get('is_verified', False))),
             email_verification_token=row.get('email_verification_token'),
             password_reset_token=row.get('password_reset_token'),
             password_reset_expires=parse_datetime(row.get('password_reset_expires')),

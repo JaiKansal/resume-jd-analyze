@@ -63,7 +63,7 @@ class DatabaseManager:
         """Get database connection with automatic cleanup"""
         conn = None
         try:
-            if self.config.database_url or self.config.db_type == 'postgresql':
+            if self.config.db_type == 'postgresql':
                 conn = self._get_postgresql_connection()
             else:
                 conn = self._get_sqlite_connection()
@@ -82,7 +82,7 @@ class DatabaseManager:
     def _get_postgresql_connection(self):
         """Create PostgreSQL connection"""
         try:
-            if self.config.database_url:
+            if self.config.database_url and (self.config.database_url.startswith('postgresql://') or self.config.database_url.startswith('postgres://')):
                 return psycopg2.connect(
                     self.config.database_url,
                     cursor_factory=RealDictCursor
