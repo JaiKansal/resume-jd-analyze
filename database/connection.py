@@ -119,130 +119,19 @@ class DatabaseManager:
     def _ensure_database_initialized(self):
         """Ensure database is initialized with all required tables"""
         try:
-            from database.init_database import init_database_for_streamlit
-            init_database_for_streamlit()
+            from database.simple_init import ensure_database_exists
+            ensure_database_exists()
         except Exception as e:
             logger.error(f"Failed to initialize database: {e}")
     
     def _force_database_initialization(self):
         """Force database initialization when tables are missing"""
         try:
-            import sqlite3
-            from pathlib import Path
-            
-            # Ensure data directory exists
-            data_dir = Path('data')
-            data_dir.mkdir(exist_ok=True)
-            
-            db_path = 'data/app.db'
-            
-            # Create database with all required tables
-            with sqlite3.connect(db_path) as conn:
-                cursor = conn.cursor()
-                
-                # Enable foreign keys
-                cursor.execute("PRAGMA foreign_keys = ON")
-                
-                # Create users table
-                cursor.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id TEXT PRIMARY KEY,
-                    email TEXT UNIQUE NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    first_name TEXT,
-                    last_name TEXT,
-                    company_name TEXT,
-                    phone TEXT,
-                    role TEXT DEFAULT 'user',
-                    country TEXT DEFAULT 'IN',
-                    is_verified BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """)
-                
-                # Create subscriptions table
-                cursor.execute("""
-                CREATE TABLE IF NOT EXISTS subscriptions (
-                    id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
-                    plan_type TEXT NOT NULL DEFAULT 'free',
-                    status TEXT NOT NULL DEFAULT 'active',
-                    current_period_start TIMESTAMP,
-                    current_period_end TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """)
-                
-                # Create subscription plans table
-                cursor.execute("""
-                CREATE TABLE IF NOT EXISTS subscription_plans (
-                    id TEXT PRIMARY KEY,
-                    plan_type TEXT UNIQUE NOT NULL,
-                    name TEXT NOT NULL,
-                    price_monthly REAL NOT NULL,
-                    price_annual REAL NOT NULL,
-                    features TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """)
-                
-                # Create usage tracking table
-                cursor.execute("""
-                CREATE TABLE IF NOT EXISTS usage_tracking (
-                    id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
-                    analysis_count INTEGER DEFAULT 0,
-                    period_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    period_end TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """)
-                
-                # Create analysis sessions table
-                cursor.execute("""
-                CREATE TABLE IF NOT EXISTS analysis_sessions (
-                    id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
-                    resume_filename TEXT,
-                    job_description TEXT,
-                    analysis_result TEXT,
-                    score INTEGER,
-                    match_category TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """)
-                
-                # Create payment records table
-                cursor.execute("""
-                CREATE TABLE IF NOT EXISTS payment_records (
-                    id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
-                    razorpay_payment_id TEXT,
-                    amount INTEGER NOT NULL,
-                    currency TEXT DEFAULT 'INR',
-                    status TEXT NOT NULL,
-                    plan_type TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """)
-                
-                # Create user sessions table
-                cursor.execute("""
-                CREATE TABLE IF NOT EXISTS user_sessions (
-                    id TEXT PRIMARY KEY,
-                    user_id TEXT NOT NULL,
-                    session_token TEXT UNIQUE NOT NULL,
-                    expires_at TIMESTAMP NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-                """)
-                
-                conn.commit()
-                logger.info("Database force-initialized successfully")
-                
+            from database.simple_init import create_minimal_database
+            success = create_minimal_database()
+            if not success:
+                raise Exception("Failed to create minimal database")
+            logger.info("Database force-initialized successfully")
         except Exception as e:
             logger.error(f"Failed to force initialize database: {e}")
             raise
