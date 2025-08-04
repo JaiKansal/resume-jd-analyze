@@ -1011,7 +1011,7 @@ def render_dashboard_authenticated(user, subscription):
         st.info(f"""
         **Plan:** {subscription.plan.name if subscription and subscription.plan else "Free"}
         **Status:** {subscription.status.value.title()}
-        **Monthly Limit:** {'Unlimited' if subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0 == -1 else subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0}
+        **Monthly Limit:** {'Unlimited' if subscription and subscription.plan and subscription.plan.monthly_analysis_limit == -1 else subscription.plan.monthly_analysis_limit if subscription and subscription.plan else 0}
         **Used This Month:** {subscription.monthly_analysis_used}
         """)
     
