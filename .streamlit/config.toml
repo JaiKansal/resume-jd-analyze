@@ -1,17 +1,11 @@
+
 [server]
 headless = true
-port = 8501
-enableXsrfProtection = false
+port = $PORT
 enableCORS = false
 
 [browser]
 gatherUsageStats = false
 
 [theme]
-primaryColor = "#667eea"
-backgroundColor = "#ffffff"
-secondaryBackgroundColor = "#f0f2f6"
-textColor = "#262730"
-
-[client]
-showErrorDetails = false
+base = "light"

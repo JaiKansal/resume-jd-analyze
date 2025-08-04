@@ -24,17 +24,35 @@ from auth.registration import render_auth_page, registration_flow
 from auth.services import user_service, subscription_service, session_service, analytics_service
 from auth.models import UserRole, PlanType
 
-# Enhanced services imports
+# Enhanced services imports with fallback
 try:
     from billing.enhanced_razorpay_service import enhanced_razorpay_service
     from database.enhanced_analysis_storage import enhanced_analysis_storage
     from components.report_history_ui import report_history_ui
     ENHANCED_SERVICES_AVAILABLE = True
+    
+    # Check if Razorpay SDK is missing and use fallback
+    status_info = enhanced_razorpay_service.get_status_info()
+    if status_info.get('status') == 'sdk_missing':
+        try:
+            from billing.fallback_razorpay_service import fallback_razorpay_service
+            enhanced_razorpay_service = fallback_razorpay_service
+            logger.info("Using fallback Razorpay service (Direct API)")
+        except ImportError:
+            logger.warning("Fallback Razorpay service not available")
+    
 except ImportError:
     # Fallback to original services
-    from billing.razorpay_service import razorpay_service as enhanced_razorpay_service
-    from database.analysis_storage import analysis_storage as enhanced_analysis_storage
-    ENHANCED_SERVICES_AVAILABLE = False
+    try:
+        from billing.fallback_razorpay_service import fallback_razorpay_service as enhanced_razorpay_service
+        from database.analysis_storage import analysis_storage as enhanced_analysis_storage
+        ENHANCED_SERVICES_AVAILABLE = True
+        logger.info("Using fallback services")
+    except ImportError:
+        from billing.razorpay_service import razorpay_service as enhanced_razorpay_service
+        from database.analysis_storage import analysis_storage as enhanced_analysis_storage
+        ENHANCED_SERVICES_AVAILABLE = False
+        logger.warning("Using basic services")
 
 # Analytics imports
 from analytics.google_analytics import ga_tracker, funnel_analyzer

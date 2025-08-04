@@ -28,6 +28,14 @@ except ImportError:
     PlanType = None
     get_db = None
 
+
+# Fallback service for when SDK is not available
+try:
+    from billing.fallback_razorpay_service import fallback_razorpay_service
+    FALLBACK_AVAILABLE = True
+except ImportError:
+    FALLBACK_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 class EnhancedRazorpayService:
@@ -250,8 +258,12 @@ class EnhancedRazorpayService:
             logger.error(f"Failed to create Razorpay customer: {e}")
             return None
 
-# Global instance
+# Global instance with fallback
 enhanced_razorpay_service = EnhancedRazorpayService()
+
+# Use fallback if SDK is not available
+if enhanced_razorpay_service.status == 'sdk_missing' and FALLBACK_AVAILABLE:
+    enhanced_razorpay_service = fallback_razorpay_service
 
 # Backward compatibility
 razorpay_service = enhanced_razorpay_service
