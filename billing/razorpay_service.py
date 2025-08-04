@@ -17,7 +17,6 @@ try:
     RAZORPAY_AVAILABLE = True
 except ImportError:
     RAZORPAY_AVAILABLE = False
-    print("⚠️  Razorpay SDK not available. Install with: pip install razorpay")
 
 from auth.models import User, PlanType
 from database.connection import get_db
