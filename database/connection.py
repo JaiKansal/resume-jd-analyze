@@ -109,9 +109,20 @@ class DatabaseManager:
         db_path = Path(self.config.sqlite_path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         
+        # Initialize database if needed
+        self._ensure_database_initialized()
+        
         conn = sqlite3.connect(self.config.sqlite_path)
         conn.row_factory = sqlite3.Row  # Enable dict-like access
         return conn
+    
+    def _ensure_database_initialized(self):
+        """Ensure database is initialized with all required tables"""
+        try:
+            from database.init_database import init_database_for_streamlit
+            init_database_for_streamlit()
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
     
     def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
         """Execute a SELECT query and return results"""

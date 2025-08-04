@@ -4,6 +4,9 @@ Resume + JD Analyzer - Web Application
 A fully productized web interface for resume and job description matching
 """
 
+# Startup initialization (must be first)
+import startup
+
 import streamlit as st
 import os
 import tempfile
@@ -54,6 +57,9 @@ from resume_matcher_ai.utils import setup_environment, get_usage_statistics
 # Support system imports
 from support.support_dashboard import support_dashboard
 from support.feedback_widget import feedback_widget
+
+# Database initialization (must be imported early)
+from database.init_database import init_database_for_streamlit
 
 # Page configuration
 st.set_page_config(
