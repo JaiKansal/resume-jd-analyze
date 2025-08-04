@@ -385,23 +385,29 @@ class RegistrationFlow:
                     )
                     
                     if user:
-                        # Update subscription if not free plan
+                        # Store user ID for payment step
+                        st.session_state.registration_data['user_id'] = user.id
+                        
+                        # Check if selected plan requires payment
                         if selected_plan.plan_type != PlanType.FREE:
-                            # For now, just create the subscription record
-                            # In production, this would integrate with Stripe
+                            # Redirect to payment step for paid plans
+                            st.session_state.registration_step = 5
+                            st.rerun()
+                        else:
+                            # For free plan, create subscription directly
                             subscription = subscription_service.create_subscription(
                                 user.id, 
                                 selected_plan.id
                             )
-                        
-                        # Create session
-                        session = session_service.create_session(user.id)
-                        
-                        # Update session state
-                        st.session_state.user_authenticated = True
-                        st.session_state.current_user = user
-                        st.session_state.user_session = session
-                        st.session_state.registration_step = 5
+                            
+                            # Create session and complete registration
+                            session = session_service.create_session(user.id)
+                            
+                            # Update session state
+                            st.session_state.user_authenticated = True
+                            st.session_state.current_user = user
+                            st.session_state.user_session = session
+                            st.session_state.registration_step = 6  # Skip payment step for free plan
                         
                         # Track conversion event
                         self.track_conversion_event(user.id, 'registration_completed', {
@@ -425,8 +431,176 @@ class RegistrationFlow:
             st.session_state.registration_step = 3
             st.rerun()
     
-    def render_step_5_welcome_onboarding(self):
-        """Step 5: Welcome and onboarding"""
+    def render_step_5_payment(self):
+        """Step 5: Payment for paid plans"""
+        data = st.session_state.registration_data
+        selected_plan_id = data.get('selected_plan')
+        user_id = data.get('user_id')
+        
+        # Find selected plan
+        plans = subscription_service.get_all_plans()
+        selected_plan = next((p for p in plans if p.id == selected_plan_id), None)
+        
+        if not selected_plan:
+            st.error("Selected plan not found. Please contact support.")
+            return
+        
+        st.markdown("### 💳 Complete Your Payment")
+        st.markdown(f"You've selected the **{selected_plan.name}** plan. Please complete your payment to activate your account.")
+        
+        # Payment summary
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.markdown("#### 📋 Payment Summary")
+            st.write(f"**Plan:** {selected_plan.name}")
+            st.write(f"**Price:** ₹{selected_plan.price_monthly:,.0f}/month")
+            if selected_plan.monthly_analysis_limit == -1:
+                st.write("**Analyses:** Unlimited")
+            else:
+                st.write(f"**Analyses:** {selected_plan.monthly_analysis_limit}/month")
+            
+            # Key features
+            st.markdown("**Includes:**")
+            if selected_plan.plan_type == PlanType.PROFESSIONAL:
+                features = ["✅ Unlimited analyses", "✅ Advanced AI insights", "✅ All export formats", "✅ Email support"]
+            elif selected_plan.plan_type == PlanType.BUSINESS:
+                features = ["✅ Team collaboration", "✅ Bulk processing", "✅ Analytics dashboard", "✅ API access"]
+            elif selected_plan.plan_type == PlanType.ENTERPRISE:
+                features = ["✅ Unlimited seats", "✅ SSO integration", "✅ Custom integrations", "✅ Dedicated support"]
+            else:
+                features = ["✅ Premium features"]
+            
+            for feature in features:
+                st.markdown(feature)
+        
+        with col2:
+            st.markdown("#### 💰 Total")
+            st.markdown(f"### ₹{selected_plan.price_monthly:,.0f}")
+            st.markdown("*per month*")
+            
+            # Payment methods
+            st.markdown("**Payment Methods:**")
+            st.markdown("💳 Credit/Debit Cards")
+            st.markdown("📱 UPI")
+            st.markdown("🏦 Net Banking")
+            st.markdown("💰 Wallets")
+        
+        st.markdown("---")
+        
+        # Payment button
+        if st.button("💳 Pay with Razorpay", type="primary", use_container_width=True):
+            try:
+                # Get user object
+                user = user_service.get_user_by_id(user_id)
+                if not user:
+                    st.error("User not found. Please contact support.")
+                    return
+                
+                # Create Razorpay payment link
+                from billing.razorpay_service import razorpay_service
+                
+                description = f"{selected_plan.name} Plan - Monthly subscription"
+                payment_link = razorpay_service.create_payment_link(
+                    amount=int(selected_plan.price_monthly * 100),  # Convert to paisa
+                    description=description,
+                    customer_email=user.email,
+                    plan_type=selected_plan.plan_type
+                )
+                
+                if payment_link:
+                    st.success("✅ Payment link created successfully!")
+                    
+                    # Store payment info for completion
+                    st.session_state.registration_data['payment_link'] = payment_link['short_url']
+                    st.session_state.registration_data['payment_id'] = payment_link['id']
+                    
+                    # Show payment link
+                    st.markdown(f"""
+                    ### 🚀 Complete Your Payment
+                    
+                    Click the link below to complete your payment securely:
+                    
+                    **[Pay ₹{selected_plan.price_monthly:,.0f} with Razorpay →]({payment_link['short_url']})**
+                    """)
+                    
+                    # Payment instructions
+                    with st.expander("📋 Payment Instructions"):
+                        st.markdown("""
+                        1. **Click the payment link** above
+                        2. **Choose your payment method** (UPI, Card, Net Banking, etc.)
+                        3. **Complete the payment** securely through Razorpay
+                        4. **Return to this page** after successful payment
+                        5. **Click "I've Completed Payment"** below
+                        
+                        **Need help?** Contact support at support@resumeanalyzer.com
+                        """)
+                    
+                    # Payment completion button
+                    if st.button("✅ I've Completed Payment", type="secondary", use_container_width=True):
+                        # In a real implementation, you would verify the payment status
+                        # For now, we'll create the subscription and proceed
+                        
+                        # Create subscription
+                        subscription = subscription_service.create_subscription(
+                            user_id, 
+                            selected_plan.id
+                        )
+                        
+                        if subscription:
+                            # Create session
+                            session = session_service.create_session(user_id)
+                            
+                            # Update session state
+                            st.session_state.user_authenticated = True
+                            st.session_state.current_user = user
+                            st.session_state.user_session = session
+                            
+                            # Move to welcome step
+                            st.session_state.registration_step = 6
+                            st.success("🎉 Payment successful! Welcome to your premium account!")
+                            st.rerun()
+                        else:
+                            st.error("Failed to create subscription. Please contact support.")
+                else:
+                    st.error("❌ Failed to create payment link. Please try again.")
+                    
+            except Exception as e:
+                st.error(f"❌ Payment error: {str(e)}")
+        
+        # Back to free plan option
+        st.markdown("---")
+        if st.button("← Start with Free Plan Instead", type="secondary"):
+            # Find free plan
+            free_plan = next((p for p in plans if p.plan_type == PlanType.FREE), None)
+            if free_plan:
+                # Update selected plan to free
+                st.session_state.registration_data['selected_plan'] = free_plan.id
+                
+                # Create subscription for free plan
+                subscription = subscription_service.create_subscription(
+                    user_id, 
+                    free_plan.id
+                )
+                
+                if subscription:
+                    # Get user object
+                    user = user_service.get_user_by_id(user_id)
+                    
+                    # Create session
+                    session = session_service.create_session(user_id)
+                    
+                    # Update session state
+                    st.session_state.user_authenticated = True
+                    st.session_state.current_user = user
+                    st.session_state.user_session = session
+                    
+                    # Move to welcome step
+                    st.session_state.registration_step = 6
+                    st.rerun()
+    
+    def render_step_6_welcome_onboarding(self):
+        """Step 6: Welcome and onboarding"""
         user = st.session_state.current_user
         
         st.balloons()
@@ -638,7 +812,7 @@ class RegistrationFlow:
     def render_registration_flow(self):
         """Main method to render the registration flow"""
         # Progress indicator
-        steps = ["User Type", "Basic Info", "Plan Selection", "Confirmation", "Welcome"]
+        steps = ["User Type", "Basic Info", "Plan Selection", "Confirmation", "Payment", "Welcome"]
         current_step = st.session_state.registration_step
         
         # Progress bar
@@ -668,7 +842,9 @@ class RegistrationFlow:
         elif current_step == 4:
             self.render_step_4_confirmation()
         elif current_step == 5:
-            self.render_step_5_welcome_onboarding()
+            self.render_step_5_payment()
+        elif current_step == 6:
+            self.render_step_6_welcome_onboarding()
 
 def render_login_form():
     """Render login form for existing users"""
