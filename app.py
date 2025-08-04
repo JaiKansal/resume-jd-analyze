@@ -15,10 +15,14 @@ import pandas as pd
 import json
 import time
 import os
+import logging
 from datetime import datetime
 from pathlib import Path
 import base64
 from io import BytesIO
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Authentication imports
 from auth.registration import render_auth_page, registration_flow
@@ -172,13 +176,18 @@ def get_subscription_with_fallback(user_id):
         if subscription:
             return subscription
         
+        # Import required models at function level
+        from auth.models import Subscription, SubscriptionPlan, SubscriptionStatus, PlanType
+        
         # Create default free subscription if none exists
-        free_plan = subscription_service.get_plan_by_type(PlanType.FREE)
-        if free_plan:
-            return subscription_service.create_subscription(user_id, free_plan.id)
+        try:
+            free_plan = subscription_service.get_plan_by_type(PlanType.FREE)
+            if free_plan:
+                return subscription_service.create_subscription(user_id, free_plan.id)
+        except Exception:
+            pass  # Fall through to mock subscription
         
         # Return mock subscription as last resort
-        from auth.models import Subscription, SubscriptionPlan, SubscriptionStatus, PlanType
         mock_plan = SubscriptionPlan(
             id='plan_free',
             name='Free',
