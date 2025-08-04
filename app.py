@@ -577,7 +577,7 @@ def render_authenticated_header(user):
     with col2:
         # Quick stats or upgrade prompt
         subscription = get_subscription_with_fallback(user.id)
-        if subscription and subscription.plan.plan_type.value == 'free':
+        if subscription and subscription.plan and hasattr(subscription.plan, 'plan_type') and subscription.plan.plan_type.value == 'free':
             st.markdown("""
             <div style="background: #fff3cd; padding: 1rem; border-radius: 10px; text-align: center; margin-top: 2rem;">
                 <strong>🚀 Upgrade to Pro</strong><br>
