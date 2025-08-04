@@ -24,6 +24,18 @@ from auth.registration import render_auth_page, registration_flow
 from auth.services import user_service, subscription_service, session_service, analytics_service
 from auth.models import UserRole, PlanType
 
+# Enhanced services imports
+try:
+    from billing.enhanced_razorpay_service import enhanced_razorpay_service
+    from database.enhanced_analysis_storage import enhanced_analysis_storage
+    from components.report_history_ui import report_history_ui
+    ENHANCED_SERVICES_AVAILABLE = True
+except ImportError:
+    # Fallback to original services
+    from billing.razorpay_service import razorpay_service as enhanced_razorpay_service
+    from database.analysis_storage import analysis_storage as enhanced_analysis_storage
+    ENHANCED_SERVICES_AVAILABLE = False
+
 # Analytics imports
 from analytics.google_analytics import ga_tracker, funnel_analyzer
 from analytics.admin_dashboard import render_admin_dashboard
@@ -141,6 +153,58 @@ def initialize_session_state():
         st.session_state.bulk_results = []
     if 'setup_complete' not in st.session_state:
         st.session_state.setup_complete = False
+
+def check_payment_system_status():
+    """Check and display payment system status"""
+    if ENHANCED_SERVICES_AVAILABLE:
+        status_info = enhanced_razorpay_service.get_status_info()
+        
+        if status_info['status'] != 'connected':
+            st.sidebar.warning("⚠️ Payment system needs configuration")
+            
+            with st.sidebar.expander("🔧 Payment System Status"):
+                enhanced_razorpay_service.render_status_debug()
+    else:
+        # Check basic razorpay service
+        if not enhanced_razorpay_service.client:
+            st.sidebar.error("❌ Payment system not configured")
+            st.sidebar.info("Add RAZORPAY_KEY_SECRET to Streamlit secrets")
+
+def save_analysis_with_history(user_id: str, resume_filename: str, resume_content: str,
+                              job_description: str, analysis_result: dict, 
+                              processing_time: float = 0):
+    """Save analysis with enhanced storage and history tracking"""
+    
+    if ENHANCED_SERVICES_AVAILABLE:
+        analysis_id = enhanced_analysis_storage.save_analysis(
+            user_id=user_id,
+            resume_filename=resume_filename,
+            resume_content=resume_content,
+            job_description=job_description,
+            analysis_result=analysis_result,
+            processing_time=processing_time
+        )
+        
+        if analysis_id:
+            st.success("✅ Analysis saved to your history!")
+            
+            # Show quick stats
+            with st.expander("📊 Your Analysis Stats"):
+                stats = enhanced_analysis_storage.get_user_statistics(user_id)
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Total Analyses", stats.get('total_analyses', 0))
+                with col2:
+                    st.metric("Average Score", f"{stats.get('avg_score', 0):.1f}%")
+                with col3:
+                    st.metric("Best Score", f"{stats.get('best_score', 0)}%")
+        
+        return analysis_id
+    else:
+        # Fallback to session state storage
+        st.session_state.analysis_results.append((resume_filename, analysis_result))
+        return None
 
 def check_setup():
     """Check if the application is properly configured"""
@@ -358,8 +422,11 @@ def render_authenticated_app():
     
     st.sidebar.markdown("---")
     
+    # Check payment system status
+    check_payment_system_status()
+    
     # Navigation menu - add admin dashboard for admin users
-    nav_options = ["🎯 Single Analysis", "📦 Bulk Analysis", "🎯 Job Matching", "📊 Dashboard", "🎧 Support", "⚙️ Settings"]
+    nav_options = ["🎯 Single Analysis", "📦 Bulk Analysis", "🎯 Job Matching", "📋 Analysis History", "📊 Dashboard", "🎧 Support", "⚙️ Settings"]
     
     # Add admin dashboard for admin users
     if user.role in [UserRole.ADMIN, UserRole.ENTERPRISE_ADMIN]:
@@ -401,6 +468,11 @@ def render_authenticated_app():
         # Track page view
         ga_tracker.track_page_view("Job Matching", "/job-matching", user.id)
         render_job_matching()
+    elif mode == "📋 Analysis History":
+        # Track page view
+        ga_tracker.track_page_view("Analysis History", "/analysis-history", user.id)
+        engagement_tracker.track_page_visit(user.id, "Analysis History")
+        render_analysis_history(user)
     elif mode == "📊 Dashboard":
         # Track page view
         ga_tracker.track_page_view("User Dashboard", "/dashboard", user.id)
@@ -458,6 +530,24 @@ def render_usage_info(subscription):
             st.warning(f"⚠️ Only {remaining} analysis remaining this month. Consider upgrading.")
         elif remaining <= 3:
             st.info(f"📊 {remaining} analyses remaining this month.")
+
+def render_analysis_history(user):
+    """Render analysis history page"""
+    if ENHANCED_SERVICES_AVAILABLE:
+        report_history_ui.render_history_page(user)
+    else:
+        # Fallback to session state history
+        st.title("📊 Analysis History")
+        st.info("📝 Enhanced history tracking is not available. Showing session data only.")
+        
+        if st.session_state.analysis_results:
+            st.subheader("📋 Current Session Results")
+            
+            for i, (filename, result) in enumerate(st.session_state.analysis_results):
+                with st.expander(f"📄 {filename} - {result.score}%"):
+                    render_analysis_result(result, filename)
+        else:
+            st.info("No analysis results in current session.")
 
 def render_single_analysis_authenticated(user, subscription):
     """Render single analysis with authentication and usage tracking"""
@@ -570,8 +660,15 @@ def render_single_analysis_authenticated(user, subscription):
                     st.success("✅ Analysis completed!")
                     render_analysis_result(result, resume_file.name)
                     
-                    # Store result for dashboard
-                    st.session_state.analysis_results.append((resume_file.name, result))
+                    # Store result with enhanced history tracking
+                    analysis_id = save_analysis_with_history(
+                        user_id=user.id,
+                        resume_filename=resume_file.name,
+                        resume_content=resume_text,
+                        job_description=jd_text,
+                        analysis_result=result.__dict__ if hasattr(result, '__dict__') else result,
+                        processing_time=getattr(result, 'processing_time', 0)
+                    )
                     
                     # Download report options
                     render_download_options(user, [(resume_file.name, result)], jd_text)
@@ -1045,8 +1142,15 @@ def render_single_analysis():
                     st.success("✅ Analysis completed!")
                     render_analysis_result(result, resume_file.name)
                     
-                    # Store result for dashboard
-                    st.session_state.analysis_results.append((resume_file.name, result))
+                    # Store result with enhanced history tracking
+                    analysis_id = save_analysis_with_history(
+                        user_id=user.id,
+                        resume_filename=resume_file.name,
+                        resume_content=resume_file.read().decode('utf-8') if hasattr(resume_file, 'read') else str(resume_file),
+                        job_description=jd_text,
+                        analysis_result=result.__dict__ if hasattr(result, '__dict__') else result,
+                        processing_time=getattr(result, 'processing_time', 0)
+                    )
                     
                     # Download report options
                     st.subheader("📥 Download Reports")
