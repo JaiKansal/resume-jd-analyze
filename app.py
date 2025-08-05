@@ -809,8 +809,6 @@ def render_single_analysis_authenticated(user, subscription):
                     render_analysis_result(result, resume_file.name)
                     
                     # Store result in session state immediately to prevent loss
-                    if 'analysis_results' not in st.session_state:
-                        st.session_state.analysis_results = []
                     st.session_state.analysis_results.append((resume_file.name, result))
                     
                     # Refresh usage display without full reload (usage already tracked by usage_monitor)
