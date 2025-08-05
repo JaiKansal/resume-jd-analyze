@@ -869,6 +869,15 @@ def render_login_form():
                 with st.spinner("Signing you in..."):
                     user = user_service.authenticate_user(email, password)
                     
+                    # Verify authentication was successful
+                    if user:
+                        # Double-check user exists and is active
+                        verified_user = user_service.get_user_by_id(user.id)
+                        if not verified_user or not verified_user.is_active:
+                            st.error("Account is inactive or not found")
+                            return
+                        user = verified_user
+                    
                     if user:
                         # Create session
                         session = session_service.create_session(user.id)

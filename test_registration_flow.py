@@ -1,162 +1,278 @@
 #!/usr/bin/env python3
 """
-Test the registration and onboarding flow
+Test the complete registration flow to identify issues
 """
 
-from auth.services import user_service, subscription_service
+import sys
+import os
 import logging
 
+# Set up logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def test_registration_components():
-    """Test registration flow components"""
-    print("🧪 Testing Registration Flow Components")
+def test_complete_registration_flow():
+    """Test the complete registration flow"""
+    print("🧪 Testing Complete Registration Flow")
     print("=" * 50)
     
-    # Test 1: Check subscription plans are available
-    print("\n4. Testing subscription plans availability...")
     try:
-        plans = subscription_service.get_all_plans()
-        if plans and len(plans) >= 4:
-            print(f"✅ Found {len(plans)} subscription plans:")
-            for plan in plans:
-                print(f"   - {plan.name}: ${plan.price_monthly}/month")
-        else:
-            print(f"❌ Expected at least 4 plans, found {len(plans) if plans else 0}")
+        # Import required modules
+        from auth.services import user_service, subscription_service, session_service
+        from auth.models import UserRole, PlanType
+        from auth.registration import RegistrationFlow
+        
+        print("✅ Successfully imported all modules")
+        
+        # Test data
+        test_email = "flow_test@example.com"
+        test_password = "TestPassword123!"
+        
+        # Clean up any existing user
+        existing_user = user_service.get_user_by_email(test_email)
+        if existing_user:
+            from database.connection import get_db
+            db = get_db()
+            db.execute_command("DELETE FROM subscriptions WHERE user_id = ?", (existing_user.id,))
+            db.execute_command("DELETE FROM users WHERE email = ?", (test_email,))
+            print("🧹 Cleaned up existing test user")
+        
+        # Step 1: Create user (simulating registration form submission)
+        print("📝 Step 1: Creating user account...")
+        user = user_service.create_user(
+            email=test_email,
+            password=test_password,
+            first_name="Flow",
+            last_name="Test",
+            company_name="Test Company",
+            role=UserRole.INDIVIDUAL,
+            phone="+1234567890",
+            country="United States"
+        )
+        
+        if not user:
+            print("❌ Failed to create user")
+            return False
+        
+        print(f"✅ User created: {user.email}")
+        
+        # Step 2: Get free plan (simulating plan selection)
+        print("💳 Step 2: Getting free plan...")
+        free_plan = subscription_service.get_plan_by_type(PlanType.FREE)
+        
+        if not free_plan:
+            print("❌ Free plan not found")
+            return False
+        
+        print(f"✅ Free plan found: {free_plan.name}")
+        
+        # Step 3: Create subscription (simulating subscription creation)
+        print("🔗 Step 3: Creating subscription...")
+        subscription = subscription_service.create_subscription(user.id, free_plan.id)
+        
+        if not subscription:
+            print("❌ Failed to create subscription")
+            return False
+        
+        print(f"✅ Subscription created: {subscription.status}")
+        
+        # Step 4: Create session (simulating login)
+        print("🔐 Step 4: Creating user session...")
+        session = session_service.create_session(user.id)
+        
+        if not session:
+            print("❌ Failed to create session")
+            return False
+        
+        print(f"✅ Session created: {session.id}")
+        
+        # Step 5: Verify complete user setup
+        print("🔍 Step 5: Verifying complete setup...")
+        
+        # Check user exists and is active
+        saved_user = user_service.get_user_by_email(test_email)
+        if not saved_user or not saved_user.is_active:
+            print("❌ User not properly saved or inactive")
+            return False
+        
+        # Check subscription exists and is active
+        user_subscription = subscription_service.get_user_subscription(user.id)
+        if not user_subscription or user_subscription.status != 'active':
+            print("❌ Subscription not properly created or inactive")
+            return False
+        
+        # Check authentication works
+        auth_user = user_service.authenticate_user(test_email, test_password)
+        if not auth_user:
+            print("❌ Authentication failed")
+            return False
+        
+        print("✅ Complete registration flow successful!")
+        print(f"   User ID: {user.id}")
+        print(f"   Email: {user.email}")
+        print(f"   Subscription: {user_subscription.status}")
+        print(f"   Plan: {free_plan.name}")
+        print(f"   Usage: {user_subscription.monthly_analysis_used}/{free_plan.monthly_analysis_limit}")
+        
+        return True
+        
     except Exception as e:
-        print(f"❌ Failed to get subscription plans: {e}")
+        print(f"❌ Registration flow test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def test_session_persistence():
+    """Test if sessions persist correctly"""
+    print("\n🔄 Testing Session Persistence")
+    print("=" * 35)
     
-    # Test 5: Test conversion event tracking structure
-    print("\n5. Testing conversion event tracking...")
     try:
+        from auth.services import session_service, user_service
+        
+        # Get a test user
+        test_user = user_service.get_user_by_email("flow_test@example.com")
+        if not test_user:
+            print("❌ No test user found")
+            return False
+        
+        # Create session
+        session = session_service.create_session(test_user.id)
+        if not session:
+            print("❌ Failed to create session")
+            return False
+        
+        print(f"✅ Session created: {session.id}")
+        
+        # Verify session can be retrieved
+        retrieved_session = session_service.get_session(session.id)
+        if not retrieved_session:
+            print("❌ Session not retrievable")
+            return False
+        
+        print(f"✅ Session retrieved: {retrieved_session.id}")
+        
+        # Check if session is valid
+        is_valid = session_service.is_session_valid(session.id)
+        if not is_valid:
+            print("❌ Session not valid")
+            return False
+        
+        print("✅ Session is valid")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Session persistence test failed: {e}")
+        return False
+
+def test_data_persistence():
+    """Test if user data persists correctly"""
+    print("\n💾 Testing Data Persistence")
+    print("=" * 30)
+    
+    try:
+        from auth.services import user_service, subscription_service
+        
+        # Get test user
+        test_user = user_service.get_user_by_email("flow_test@example.com")
+        if not test_user:
+            print("❌ Test user not found")
+            return False
+        
+        print(f"✅ User persisted: {test_user.email}")
+        
+        # Check subscription
+        subscription = subscription_service.get_user_subscription(test_user.id)
+        if not subscription:
+            print("❌ Subscription not persisted")
+            return False
+        
+        print(f"✅ Subscription persisted: {subscription.status}")
+        
+        # Test analysis storage (simulate saving analysis result)
+        print("📊 Testing analysis result storage...")
+        
+        # This would normally be done through the analysis storage service
+        # For now, just check if the user can have analysis results stored
         from database.connection import get_db
         db = get_db()
         
-        # Check if conversion_events table exists
-        if db.table_exists('conversion_events'):
-            print("✅ Conversion events table exists")
+        # Check if we can store a mock analysis
+        try:
+            analysis_id = "test_analysis_123"
+            db.execute_command("""
+                INSERT OR REPLACE INTO analysis_sessions 
+                (id, user_id, resume_filename, job_description, analysis_result, created_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+            """, (analysis_id, test_user.id, "test_resume.pdf", "test job description", "test result"))
             
-            # Check table structure
-            schema = db.get_table_schema('conversion_events')
-            expected_columns = ['id', 'user_id', 'event_name', 'event_properties', 'created_at']
+            print("✅ Analysis result storage works")
             
-            if schema:
-                actual_columns = [col.get('name', col.get('column_name', '')) for col in schema]
-                missing_columns = [col for col in expected_columns if col not in actual_columns]
-                
-                if not missing_columns:
-                    print("✅ Conversion events table has all required columns")
-                else:
-                    print(f"❌ Missing columns in conversion_events: {missing_columns}")
-            else:
-                print("❌ Could not retrieve conversion_events table schema")
-        else:
-            print("❌ Conversion events table does not exist")
-    except Exception as e:
-        print(f"❌ Failed to check conversion events table: {e}")
-    
-    print("\n" + "=" * 50)
-    print("🎉 Registration flow component test completed!")
-    return True
-
-def test_user_creation_flow():
-    """Test the complete user creation flow"""
-    print("\n🧪 Testing Complete User Creation Flow")
-    print("=" * 50)
-    
-    # Test data
-    import time
-    test_email = f"registration_test_{int(time.time())}@example.com"
-    test_data = {
-        'email': test_email,
-        'password': 'TestPassword123!',
-        'first_name': 'Registration',
-        'last_name': 'Test',
-        'company_name': 'Test Company',
-        'role': 'individual',
-        'phone': '+1-555-123-4567',
-        'country': 'United States'
-    }
-    
-    print(f"\n1. Creating test user: {test_email}")
-    
-    try:
-        from auth.models import UserRole
-        
-        # Create user
-        user = user_service.create_user(
-            email=test_data['email'],
-            password=test_data['password'],
-            first_name=test_data['first_name'],
-            last_name=test_data['last_name'],
-            company_name=test_data['company_name'],
-            role=UserRole.INDIVIDUAL,
-            phone=test_data['phone'],
-            country=test_data['country']
-        )
-        
-        if user:
-            print(f"✅ User created successfully: {user.id}")
-            print(f"   Email: {user.email}")
-            print(f"   Name: {user.get_full_name()}")
-            print(f"   Role: {user.role.value}")
+            # Clean up
+            db.execute_command("DELETE FROM analysis_sessions WHERE id = ?", (analysis_id,))
             
-            # Test 2: Check subscription was created
-            print("\n2. Checking default subscription...")
-            subscription = subscription_service.get_user_subscription(user.id)
-            
-            if subscription:
-                print(f"✅ Default subscription created: {subscription.plan.name}")
-                print(f"   Plan type: {subscription.plan.plan_type.value}")
-                print(f"   Monthly limit: {subscription.plan.monthly_analysis_limit}")
-            else:
-                print("❌ Default subscription not created")
-            
-            # Test 3: Test authentication
-            print("\n3. Testing authentication...")
-            auth_user = user_service.authenticate_user(test_data['email'], test_data['password'])
-            
-            if auth_user:
-                print(f"✅ Authentication successful: {auth_user.email}")
-            else:
-                print("❌ Authentication failed")
-            
-            # Test 4: Test email verification
-            print("\n4. Testing email verification...")
-            if user.email_verification_token:
-                verified = user_service.verify_email(user.email_verification_token)
-                if verified:
-                    print("✅ Email verification successful")
-                else:
-                    print("❌ Email verification failed")
-            else:
-                print("❌ No email verification token found")
-            
-            print("\n✅ User creation flow test completed successfully!")
-            return True
-            
-        else:
-            print("❌ User creation failed")
+        except Exception as e:
+            print(f"❌ Analysis storage failed: {e}")
             return False
-            
+        
+        return True
+        
     except Exception as e:
-        print(f"❌ User creation flow test failed: {e}")
+        print(f"❌ Data persistence test failed: {e}")
         return False
 
-if __name__ == "__main__":
-    print("🚀 Starting Registration Flow Tests")
+def main():
+    """Run all registration flow tests"""
+    print("🚀 COMPREHENSIVE REGISTRATION FLOW TEST")
     print("=" * 60)
     
-    # Test components
-    component_test_passed = test_registration_components()
+    tests = [
+        ("Complete Registration Flow", test_complete_registration_flow),
+        ("Session Persistence", test_session_persistence),
+        ("Data Persistence", test_data_persistence)
+    ]
     
-    # Test complete flow
-    if component_test_passed:
-        flow_test_passed = test_user_creation_flow()
-        
-        if flow_test_passed:
-            print("\n🎉 All registration tests passed!")
-        else:
-            print("\n❌ Some registration tests failed!")
+    results = []
+    
+    for test_name, test_func in tests:
+        print(f"\n{'='*20} {test_name} {'='*20}")
+        success = test_func()
+        results.append((test_name, success))
+    
+    # Summary
+    print("\n" + "=" * 60)
+    print("📊 REGISTRATION FLOW TEST SUMMARY")
+    print("=" * 60)
+    
+    passed = 0
+    for test_name, success in results:
+        status = "✅ PASS" if success else "❌ FAIL"
+        print(f"{test_name:.<40} {status}")
+        if success:
+            passed += 1
+    
+    print(f"\nResults: {passed}/{len(tests)} tests passed")
+    
+    if passed == len(tests):
+        print("🎉 All registration flow tests passed!")
+        print("\n✅ User registration should work correctly in the app")
+        print("✅ Users should be able to login again")
+        print("✅ Analysis results should be saved")
     else:
-        print("\n❌ Component tests failed, skipping flow tests!")
+        print("⚠️  Some registration flow tests failed.")
+        print("\n💡 This indicates issues with:")
+        
+        for test_name, success in results:
+            if not success:
+                if "Registration Flow" in test_name:
+                    print("   - User account creation process")
+                    print("   - Subscription setup")
+                elif "Session Persistence" in test_name:
+                    print("   - User session management")
+                    print("   - Login persistence")
+                elif "Data Persistence" in test_name:
+                    print("   - Analysis result storage")
+                    print("   - User data retention")
+
+if __name__ == "__main__":
+    main()

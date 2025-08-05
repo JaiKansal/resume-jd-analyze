@@ -24,6 +24,36 @@ from io import BytesIO
 # Set up logging
 logger = logging.getLogger(__name__)
 
+def validate_user_session():
+    """Validate current user session and refresh if needed"""
+    if not st.session_state.get('user_authenticated', False):
+        return None
+    
+    user = st.session_state.get('current_user')
+    if not user:
+        return None
+    
+    # Verify user still exists in database
+    try:
+        from auth.services import user_service
+        current_user = user_service.get_user_by_id(user.id)
+        
+        if not current_user or not current_user.is_active:
+            # User no longer exists or is inactive
+            st.session_state.user_authenticated = False
+            st.session_state.current_user = None
+            st.session_state.user_session = None
+            return None
+        
+        # Update session state with fresh user data
+        st.session_state.current_user = current_user
+        return current_user
+        
+    except Exception as e:
+        logger.error(f"Session validation error: {e}")
+        return user  # Return cached user if validation fails
+
+
 # Authentication imports
 from auth.registration import render_auth_page, registration_flow
 from auth.services import user_service, subscription_service, session_service, analytics_service
@@ -172,47 +202,25 @@ st.markdown("""
 def get_subscription_with_fallback(user_id):
     """Get subscription with fallback to free plan"""
     try:
+        # Verify user exists first
+        user = user_service.get_user_by_id(user_id)
+        if not user:
+            logger.warning(f"User {user_id} not found when getting subscription")
+            return None
+        
         subscription = subscription_service.get_user_subscription(user_id)
         if subscription:
             return subscription
-        
-        # Import required models at function level
-        from auth.models import Subscription, SubscriptionPlan, SubscriptionStatus, PlanType
-        
-        # Create default free subscription if none exists
-        try:
+        else:
+            # Create default free subscription if none exists
+            logger.info(f"Creating default subscription for user {user_id}")
             free_plan = subscription_service.get_plan_by_type(PlanType.FREE)
             if free_plan:
                 return subscription_service.create_subscription(user_id, free_plan.id)
-        except Exception:
-            pass  # Fall through to mock subscription
-        
-        # Return mock subscription as last resort
-        mock_plan = SubscriptionPlan(
-            id='plan_free',
-            name='Free',
-            plan_type=PlanType.FREE,
-            price_monthly=0,
-            price_annual=0,
-            monthly_analysis_limit=3,
-            features={},
-            is_active=True
-        )
-        mock_subscription = Subscription(
-            id='mock_sub',
-            user_id=user_id,
-            plan_id='plan_free',
-            status=SubscriptionStatus.ACTIVE,
-            monthly_analysis_used=0
-        )
-        mock_subscription.plan = mock_plan
-        return mock_subscription
-        
-    except Exception as e:
-        logger.error(f"Failed to get subscription: {e}")
         return None
-
-
+    except Exception as e:
+        logger.error(f"Error getting subscription for user {user_id}: {e}")
+        return None
 
 def refresh_usage_display(user_id):
     """Refresh usage display in sidebar without full page reload"""
@@ -233,6 +241,14 @@ def initialize_session_state():
         st.session_state.bulk_results = []
     if 'setup_complete' not in st.session_state:
         st.session_state.setup_complete = False
+    
+    # Initialize authentication state
+    if 'user_authenticated' not in st.session_state:
+        st.session_state.user_authenticated = False
+    if 'current_user' not in st.session_state:
+        st.session_state.current_user = None
+    if 'user_session' not in st.session_state:
+        st.session_state.user_session = None
 
 def check_payment_system_status():
     """Check and display payment system status"""
@@ -455,8 +471,8 @@ def main():
 
 def render_authenticated_app():
     """Render the main application for authenticated users"""
-    # Get current user
-    user = st.session_state.get('current_user')
+    # Validate current user session
+    user = validate_user_session()
     if not user:
         st.error("Authentication error. Please sign in again.")
         st.session_state.user_authenticated = False
