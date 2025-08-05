@@ -213,6 +213,18 @@ def get_subscription_with_fallback(user_id):
         return None
 
 
+
+def refresh_usage_display(user_id):
+    """Refresh usage display in sidebar without full page reload"""
+    try:
+        subscription = get_subscription_with_fallback(user_id)
+        if subscription and subscription.plan and subscription.plan.monthly_analysis_limit != -1:
+            remaining = (subscription.plan.monthly_analysis_limit - subscription.monthly_analysis_used) if (subscription and subscription.plan and hasattr(subscription, "monthly_analysis_used")) else 0
+            # Update sidebar with new count (will show on next interaction)
+            st.session_state.usage_updated = True
+    except Exception as e:
+        logger.error(f"Failed to refresh usage display: {e}")
+
 def initialize_session_state():
     """Initialize session state variables"""
     if 'analysis_results' not in st.session_state:
@@ -796,13 +808,13 @@ def render_single_analysis_authenticated(user, subscription):
                     st.success("✅ Analysis completed!")
                     render_analysis_result(result, resume_file.name)
                     
-                    # Track analysis usage count
-                    subscription_service.increment_user_usage(user.id, 1)
+                    # Store result in session state immediately to prevent loss
+                    if 'analysis_results' not in st.session_state:
+                        st.session_state.analysis_results = []
+                    st.session_state.analysis_results.append((resume_file.name, result))
                     
-                    # Refresh subscription to show updated usage count
-                    subscription = get_subscription_with_fallback(user.id)
-                    if subscription:
-                        st.rerun()
+                    # Refresh usage display without full reload (usage already tracked by usage_monitor)
+                    refresh_usage_display(user.id)
                     
                     # Store result with enhanced history tracking
                     analysis_id = save_analysis_with_history(
@@ -885,8 +897,7 @@ def render_bulk_analysis_authenticated(user, subscription):
                 if result:
                     results.append((resume_file.name, result))
                     
-                    # Track analysis usage for each successful analysis
-                    subscription_service.increment_user_usage(user.id, 1)
+                    # Usage will be tracked once for the entire bulk analysis
                 else:
                     st.error(f"Failed to analyze {resume_file.name}: {error}")
                 
@@ -895,7 +906,7 @@ def render_bulk_analysis_authenticated(user, subscription):
             processing_time = time.time() - start_time
             status_text.text("✅ Bulk analysis completed!")
             
-            # Track usage with billing system
+            # Track usage with billing system (includes usage increment)
             from billing.usage_tracker import usage_monitor
             usage_monitor.track_analysis_session(
                 user_id=user.id,
@@ -1306,11 +1317,21 @@ def render_single_analysis():
                 result, error = analyze_single_resume(resume_file, jd_text)
                 
                 if result:
+                    # Track usage with billing system
+                    from billing.usage_tracker import usage_monitor
+                    usage_monitor.track_analysis_session(
+                        user_id=user.id,
+                        session_type="single",
+                        resume_count=1,
+                        processing_time=0.0,  # Processing time not tracked in this section
+                        api_cost=0.0  # Placeholder for actual API cost
+                    )
+                    
                     st.success("✅ Analysis completed!")
                     render_analysis_result(result, resume_file.name)
                     
-                    # Track analysis usage count
-                    subscription_service.increment_user_usage(user.id, 1)
+                    # Refresh usage display without full reload
+                    refresh_usage_display(user.id)
                     
                     # Store result with enhanced history tracking
                     analysis_id = save_analysis_with_history(
@@ -1427,6 +1448,7 @@ def render_bulk_analysis():
             progress_bar = st.progress(0)
             status_text = st.empty()
             results = []
+            start_time = time.time()
             
             for i, resume_file in enumerate(resume_files):
                 status_text.text(f"Analyzing {resume_file.name}... ({i+1}/{len(resume_files)})")
@@ -1435,14 +1457,23 @@ def render_bulk_analysis():
                 if result:
                     results.append((resume_file.name, result))
                     
-                    # Track analysis usage for each successful analysis
-                    subscription_service.increment_user_usage(user.id, 1)
+                    # Usage will be tracked once for the entire bulk analysis
                 else:
                     st.error(f"Failed to analyze {resume_file.name}: {error}")
                 
                 progress_bar.progress((i + 1) / len(resume_files))
             
             status_text.text("✅ Bulk analysis completed!")
+            
+            # Track usage with billing system (includes usage increment)
+            from billing.usage_tracker import usage_monitor
+            usage_monitor.track_analysis_session(
+                user_id=user.id,
+                session_type="bulk",
+                resume_count=len(results),
+                processing_time=time.time() - start_time,
+                api_cost=0.0  # Placeholder for actual API cost
+            )
             
             # Store results
             st.session_state.bulk_results = results
