@@ -102,13 +102,18 @@ except ImportError:
 
 # Try to import report history UI (optional, only for enhanced features)
 try:
-    from components.report_history_ui import report_history_ui
+    from components.fixed_report_history_ui import fixed_report_history_ui as report_history_ui
     REPORT_HISTORY_AVAILABLE = True
-    logger.info("Report history UI available")
+    logger.info("Fixed report history UI available")
 except ImportError:
-    report_history_ui = None
-    REPORT_HISTORY_AVAILABLE = False
-    logger.info("Report history UI not available (Streamlit context required)")
+    try:
+        from components.report_history_ui import report_history_ui
+        REPORT_HISTORY_AVAILABLE = True
+        logger.info("Fallback report history UI available")
+    except ImportError:
+        report_history_ui = None
+        REPORT_HISTORY_AVAILABLE = False
+        logger.info("Report history UI not available (Streamlit context required)")
 
 # Set enhanced services availability based on critical components
 ENHANCED_SERVICES_AVAILABLE = ANALYSIS_STORAGE_AVAILABLE
@@ -685,7 +690,7 @@ def render_authenticated_app():
         # Track page view
         ga_tracker.track_page_view("Analysis History", "analysis-history", user.id)
         engagement_tracker.track_page_visit(user.id, "Analysis History")
-        render_analysis_history(user)
+        render_simple_working_history(user)
     elif mode == "📊 Dashboard":
         # Track page view
         ga_tracker.track_page_view("User Dashboard", "dashboard", user.id)
@@ -790,28 +795,32 @@ def render_simple_analysis_history(user):
         st.info("💡 Try refreshing the page or contact support if the issue persists.")
 
 
-def render_analysis_history(user):
-    """Render analysis history page"""
-    if ENHANCED_SERVICES_AVAILABLE:
-        try:
+def render_simple_working_history(user):
+    """Render analysis history page with improved error handling"""
+    try:
+        # Always try the enhanced UI first if available
+        if REPORT_HISTORY_AVAILABLE and report_history_ui:
             report_history_ui.render_history_page(user)
-        except Exception as e:
-            logger.error(f"Unexpected error: {e}")
-            st.error(f"Enhanced history unavailable: {e}")
-            render_simple_analysis_history(user)
-    else:
-        # Fallback to session state history
-        st.title("📊 Analysis History")
-        st.info("📝 Enhanced history tracking is not available. Showing session data only.")
-        
-        if st.session_state.analysis_results:
-            st.subheader("📋 Current Session Results")
-            
-            for i, (filename, result) in enumerate(st.session_state.analysis_results):
-                with st.expander(f"📄 {filename} - {result.score}%"):
-                    render_analysis_result(result, filename)
         else:
-            st.info("No analysis results in current session.")
+            # Use the simple fallback
+            render_simple_analysis_history(user)
+    except Exception as e:
+        logger.error(f"History rendering error: {e}")
+        st.error("⚠️ There was an issue loading your analysis history.")
+        
+        # Try the simple fallback as last resort
+        try:
+            render_simple_analysis_history(user)
+        except Exception as fallback_error:
+            logger.error(f"Fallback history rendering error: {fallback_error}")
+            st.error("Unable to load analysis history. Please try refreshing the page.")
+            
+            # Show session data if available
+            if hasattr(st.session_state, 'analysis_results') and st.session_state.analysis_results:
+                st.info("📋 Showing current session results:")
+                for i, (filename, result) in enumerate(st.session_state.analysis_results):
+                    with st.expander(f"📄 {filename} - {result.score}%"):
+                        render_analysis_result(result, filename)
 
 def render_single_analysis_authenticated(user, subscription):
     """Render single analysis with authentication and usage tracking"""
@@ -3036,3 +3045,247 @@ def render_settings():
 
 if __name__ == "__main__":
     main()
+def render_simple_working_history(user):
+    """Robust analysis history that actually works"""
+    st.title("📊 Analysis History")
+    
+    try:
+        from database.connection import get_db
+        db = get_db()
+        
+        # Try multiple table queries to find reports
+        reports = []
+        
+        # Try analysis_reports table first
+        try:
+            reports = db.execute_query("""
+                SELECT id, title, content, created_at, analysis_type, metadata
+                FROM analysis_reports 
+                WHERE user_id = ? 
+                ORDER BY created_at DESC
+                LIMIT 50
+            """, (user.id,))
+            logger.info(f"Found {len(reports)} reports in analysis_reports table")
+        except Exception as e:
+            logger.warning(f"analysis_reports query failed: {e}")
+        
+        # If no reports, try analysis_sessions table
+        if not reports:
+            try:
+                sessions = db.execute_query("""
+                    SELECT id, resume_filename, score, match_category, created_at, analysis_result
+                    FROM analysis_sessions 
+                    WHERE user_id = ? 
+                    ORDER BY created_at DESC 
+                    LIMIT 50
+                """, (user.id,))
+                
+                # Convert sessions to reports format
+                for session in sessions:
+                    reports.append({
+                        'id': session['id'],
+                        'title': f"{session['resume_filename']} - {session['score']}%",
+                        'content': f"Score: {session['score']}%\nCategory: {session['match_category']}\n\nFull Analysis:\n{session.get('analysis_result', 'No detailed analysis available')}",
+                        'created_at': session['created_at'],
+                        'analysis_type': 'resume_jd_match',
+                        'metadata': json.dumps({'score': session['score'], 'category': session['match_category']})
+                    })
+                
+                logger.info(f"Found {len(reports)} sessions converted to reports")
+            except Exception as e:
+                logger.warning(f"analysis_sessions query failed: {e}")
+        
+        if not reports:
+            st.info("📝 No analysis history found. Run your first analysis to see results here!")
+            st.info("💡 Make sure you're logged in and have completed at least one analysis.")
+            return
+        
+        st.success(f"📊 Found {len(reports)} analysis reports")
+        
+        # Display reports with stable UI
+        for i, report in enumerate(reports):
+            report_id = report['id']
+            title = report.get('title', 'Untitled Report')
+            created_at = report.get('created_at', 'Unknown date')
+            
+            # Format date for display
+            if isinstance(created_at, str) and len(created_at) > 10:
+                display_date = created_at[:10]
+            else:
+                display_date = str(created_at)
+            
+            with st.expander(f"📄 {title} - {display_date}", expanded=False):
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.write(f"**Type:** {report.get('analysis_type', 'Unknown')}")
+                    st.write(f"**Created:** {created_at}")
+                    
+                    # Show metadata if available
+                    metadata = report.get('metadata')
+                    if metadata:
+                        try:
+                            if isinstance(metadata, str):
+                                metadata_dict = json.loads(metadata)
+                            else:
+                                metadata_dict = metadata
+                            
+                            if isinstance(metadata_dict, dict):
+                                for key, value in metadata_dict.items():
+                                    if key in ['score', 'category']:
+                                        st.write(f"**{key.title()}:** {value}")
+                        except:
+                            pass
+                
+                with col2:
+                    # Download button that doesn't cause rerun
+                    content = report.get('content', '')
+                    if content:
+                        filename = f"analysis_report_{report_id[:8]}.txt"
+                        
+                        st.download_button(
+                            label="📄 Download",
+                            data=content,
+                            file_name=filename,
+                            mime="text/plain",
+                            key=f"download_{report_id}_{i}",
+                            help="Download this analysis report"
+                        )
+                
+                # Show content preview
+                content = report.get('content', '')
+                if content:
+                    if len(content) > 500:
+                        preview = content[:500] + "..."
+                        st.text_area(
+                            "Preview:",
+                            value=preview,
+                            height=150,
+                            key=f"preview_{report_id}_{i}",
+                            disabled=True
+                        )
+                        
+                        if st.checkbox("Show full content", key=f"full_{report_id}_{i}"):
+                            st.text_area(
+                                "Full Content:",
+                                value=content,
+                                height=400,
+                                key=f"full_content_{report_id}_{i}",
+                                disabled=True
+                            )
+                    else:
+                        st.text_area(
+                            "Content:",
+                            value=content,
+                            height=200,
+                            key=f"content_{report_id}_{i}",
+                            disabled=True
+                        )
+    
+    except Exception as e:
+        logger.error(f"History display error: {e}")
+        st.error("❌ Failed to load analysis history")
+        st.info("💡 Try refreshing the page or contact support if the issue persists.")
+        
+        # Show session data as fallback
+        if hasattr(st.session_state, 'analysis_results') and st.session_state.analysis_results:
+            st.info("📋 Showing current session results:")
+            for i, (filename, result) in enumerate(st.session_state.analysis_results):
+                with st.expander(f"📄 {filename} - {result.score}%"):
+                    st.write(f"**Score:** {result.score}%")
+                    st.write(f"**Category:** {result.match_category}")
+
+def render_simple_working_history(user):
+    """Simple history that definitely works - no fancy features"""
+    st.title("📊 Analysis History")
+    
+    try:
+        import sqlite3
+        
+        # Direct database connection
+        conn = sqlite3.connect('data/app.db')
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        # Simple query
+        cursor.execute("""
+            SELECT id, resume_filename, score, match_category, created_at, analysis_result
+            FROM analysis_sessions 
+            WHERE user_id = ? 
+            ORDER BY created_at DESC 
+            LIMIT 20
+        """, (user.id,))
+        
+        sessions = cursor.fetchall()
+        conn.close()
+        
+        if not sessions:
+            st.info("📝 No analysis history found. Run your first analysis to see results here!")
+            st.info(f"💡 Looking for analyses for user: {user.id[:8]}...")
+            return
+        
+        st.success(f"📊 Found {len(sessions)} analysis sessions")
+        
+        # Display each session
+        for i, session in enumerate(sessions):
+            session_id = session['id']
+            filename = session['resume_filename'] or 'Unknown File'
+            score = session['score'] or 0
+            category = session['match_category'] or 'Unknown'
+            created_at = session['created_at'] or 'Unknown Date'
+            analysis_result = session['analysis_result'] or 'No analysis available'
+            
+            # Format date
+            if isinstance(created_at, str) and len(created_at) > 10:
+                display_date = created_at[:10]
+            else:
+                display_date = str(created_at)
+            
+            with st.expander(f"📄 {filename} - {score}% - {display_date}", expanded=False):
+                col1, col2 = st.columns([3, 1])
+                
+                with col1:
+                    st.write(f"**Score:** {score}%")
+                    st.write(f"**Category:** {category}")
+                    st.write(f"**Date:** {created_at}")
+                
+                with col2:
+                    # Simple download button
+                    report_content = f"""RESUME ANALYSIS REPORT
+{'='*50}
+
+Resume: {filename}
+Analysis Date: {created_at}
+Compatibility Score: {score}%
+Match Category: {category}
+
+DETAILED ANALYSIS:
+{'-'*20}
+{analysis_result}
+
+Generated by Resume + JD Analyzer
+"""
+                    
+                    st.download_button(
+                        label="📄 Download",
+                        data=report_content,
+                        file_name=f"analysis_{session_id[:8]}.txt",
+                        mime="text/plain",
+                        key=f"simple_download_{session_id}_{i}"
+                    )
+                
+                # Show analysis content
+                if analysis_result and len(analysis_result) > 10:
+                    if len(analysis_result) > 500:
+                        preview = analysis_result[:500] + "..."
+                        st.text_area("Analysis Preview:", preview, height=150, key=f"preview_{session_id}_{i}", disabled=True)
+                        
+                        if st.checkbox("Show full analysis", key=f"full_{session_id}_{i}"):
+                            st.text_area("Full Analysis:", analysis_result, height=400, key=f"full_analysis_{session_id}_{i}", disabled=True)
+                    else:
+                        st.text_area("Analysis:", analysis_result, height=200, key=f"analysis_{session_id}_{i}", disabled=True)
+    
+    except Exception as e:
+        st.error(f"❌ Failed to load analysis history: {e}")
+        st.info("💡 Please try refreshing the page or contact support.")
+        logger.error(f"Simple history error: {e}")

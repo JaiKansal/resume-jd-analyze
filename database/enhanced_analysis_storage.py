@@ -23,6 +23,98 @@ class EnhancedAnalysisStorage:
         self.db_path = 'data/app.db'
         self.ensure_database()
     
+    def get_user_reports(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get analysis reports for a user"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # Try analysis_reports table first
+                cursor.execute("""
+                    SELECT id, title, content, created_at, analysis_type, metadata
+                    FROM analysis_reports 
+                    WHERE user_id = ? 
+                    ORDER BY created_at DESC
+                    LIMIT ?
+                """, (user_id, limit))
+                
+                reports = [dict(row) for row in cursor.fetchall()]
+                
+                if reports:
+                    return reports
+                
+                # Fallback to analysis_sessions table
+                cursor.execute("""
+                    SELECT id, resume_filename, score, match_category, created_at, analysis_result
+                    FROM analysis_sessions 
+                    WHERE user_id = ? 
+                    ORDER BY created_at DESC 
+                    LIMIT ?
+                """, (user_id, limit))
+                
+                sessions = cursor.fetchall()
+                
+                # Convert sessions to reports format
+                converted_reports = []
+                for session in sessions:
+                    # Handle sqlite3.Row object properly
+                    analysis_result = session['analysis_result'] if 'analysis_result' in session.keys() else 'No detailed analysis available'
+                    converted_reports.append({
+                        'id': session['id'],
+                        'title': f"{session['resume_filename']} - {session['score']}%",
+                        'content': f"Score: {session['score']}%\nCategory: {session['match_category']}\n\nFull Analysis:\n{analysis_result}",
+                        'created_at': session['created_at'],
+                        'analysis_type': 'resume_jd_match',
+                        'metadata': json.dumps({'score': session['score'], 'category': session['match_category']})
+                    })
+                
+                return converted_reports
+                
+        except Exception as e:
+            print(f"Error getting user reports: {e}")
+            return []
+    
+    def get_report(self, report_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific report by ID"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                # Try analysis_reports table first
+                cursor.execute("""
+                    SELECT * FROM analysis_reports WHERE id = ?
+                """, (report_id,))
+                
+                report = cursor.fetchone()
+                if report:
+                    return dict(report)
+                
+                # Fallback to analysis_sessions table
+                cursor.execute("""
+                    SELECT * FROM analysis_sessions WHERE id = ?
+                """, (report_id,))
+                
+                session = cursor.fetchone()
+                if session:
+                    # Handle sqlite3.Row object properly
+                    analysis_result = session['analysis_result'] if 'analysis_result' in session.keys() else 'No detailed analysis available'
+                    return {
+                        'id': session['id'],
+                        'title': f"{session['resume_filename']} - {session['score']}%",
+                        'content': f"Score: {session['score']}%\nCategory: {session['match_category']}\n\nFull Analysis:\n{analysis_result}",
+                        'created_at': session['created_at'],
+                        'analysis_type': 'resume_jd_match',
+                        'metadata': json.dumps({'score': session['score'], 'category': session['match_category']})
+                    }
+                
+                return None
+                
+        except Exception as e:
+            print(f"Error getting report: {e}")
+            return None
+    
     def ensure_database(self):
         """Ensure database and tables exist with enhanced schema"""
         Path('data').mkdir(exist_ok=True)

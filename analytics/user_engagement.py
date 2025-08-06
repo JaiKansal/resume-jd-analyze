@@ -281,7 +281,7 @@ class UserEngagementTracker:
             
             query = """
                 INSERT INTO engagement_events (
-                    id, user_id, event_type, parameters, timestamp
+                    id, user_id, event_type, parameters, created_at
                 ) VALUES (?, ?, ?, ?, ?)
             """
             

@@ -158,8 +158,10 @@ class WatermarkService:
             
             # Rotate and position watermark
             canvas_obj.rotate(45)
-            canvas_obj.drawCentredText(400, -100, "FREE PLAN")
-            canvas_obj.drawCentredText(400, -150, "UPGRADE TO REMOVE")
+            
+            # Use drawString instead of drawCentredString for better compatibility
+            canvas_obj.drawString(300, -100, "FREE PLAN")
+            canvas_obj.drawString(250, -150, "UPGRADE TO REMOVE")
             
             # Add small watermark in corner
             canvas_obj.rotate(-45)  # Reset rotation
@@ -173,6 +175,7 @@ class WatermarkService:
             
         except Exception as e:
             logger.error(f"Failed to add page watermark: {e}")
+            # Continue without watermark rather than failing
     
     def create_upgrade_prompt_pdf(self, user: User) -> Optional[bytes]:
         """Create a PDF that's just an upgrade prompt for exceeded users"""
