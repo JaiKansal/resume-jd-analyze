@@ -50,6 +50,7 @@ def validate_user_session():
         return current_user
         
     except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         logger.error(f"Session validation error: {e}")
         return user  # Return cached user if validation fails
 
@@ -199,6 +200,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+@st.cache_data(ttl=300)
 def get_subscription_with_fallback(user_id):
     """Get subscription with fallback to free plan"""
     try:
@@ -219,6 +221,7 @@ def get_subscription_with_fallback(user_id):
                 return subscription_service.create_subscription(user_id, free_plan.id)
         return None
     except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         logger.error(f"Error getting subscription for user {user_id}: {e}")
         return None
 
@@ -231,6 +234,7 @@ def refresh_usage_display(user_id):
             # Update sidebar with new count (will show on next interaction)
             st.session_state.usage_updated = True
     except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         logger.error(f"Failed to refresh usage display: {e}")
 
 def initialize_session_state():
@@ -429,10 +433,12 @@ def analyze_single_resume(resume_file, jd_text):
         return result, None
         
     except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         if 'tmp_path' in locals():
             try:
                 os.unlink(tmp_path)
-            except:
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}")
                 pass
         return None, str(e)
 
@@ -454,6 +460,16 @@ def create_downloadable_report(results, jd_title="Job Position"):
     
     df = pd.DataFrame(report_data)
     return df
+
+
+def cleanup_session_state():
+    """Clean up old session state data to prevent memory issues"""
+    # Remove old analysis results if too many
+    if 'analysis_results' in st.session_state and len(st.session_state.analysis_results) > 50:
+        st.session_state.analysis_results = st.session_state.analysis_results[-25:]
+    
+    if 'bulk_results' in st.session_state and len(st.session_state.bulk_results) > 50:
+        st.session_state.bulk_results = st.session_state.bulk_results[-25:]
 
 def main():
     """Main application function"""
@@ -552,42 +568,42 @@ def render_authenticated_app():
     # Route to appropriate function
     if mode == "🎯 Single Analysis":
         # Track page view and engagement
-        ga_tracker.track_page_view("Single Analysis", "/single-analysis", user.id)
+        ga_tracker.track_page_view("Single Analysis", "single-analysis", user.id)
         engagement_tracker.track_page_visit(user.id, "Single Analysis")
         render_single_analysis_authenticated(user, subscription)
     elif mode == "📦 Bulk Analysis":
         # Track page view and engagement
-        ga_tracker.track_page_view("Bulk Analysis", "/bulk-analysis", user.id)
+        ga_tracker.track_page_view("Bulk Analysis", "bulk-analysis", user.id)
         engagement_tracker.track_page_visit(user.id, "Bulk Analysis")
         render_bulk_analysis_authenticated(user, subscription)
     elif mode == "🎯 Job Matching":
         # Track page view
-        ga_tracker.track_page_view("Job Matching", "/job-matching", user.id)
+        ga_tracker.track_page_view("Job Matching", "job-matching", user.id)
         render_job_matching()
     elif mode == "📋 Analysis History":
         # Track page view
-        ga_tracker.track_page_view("Analysis History", "/analysis-history", user.id)
+        ga_tracker.track_page_view("Analysis History", "analysis-history", user.id)
         engagement_tracker.track_page_visit(user.id, "Analysis History")
         render_analysis_history(user)
     elif mode == "📊 Dashboard":
         # Track page view
-        ga_tracker.track_page_view("User Dashboard", "/dashboard", user.id)
+        ga_tracker.track_page_view("User Dashboard", "dashboard", user.id)
         render_dashboard_authenticated(user, subscription)
     elif mode == "🔧 Admin Dashboard":
         # Track page view
-        ga_tracker.track_page_view("Admin Dashboard", "/admin-dashboard", user.id)
+        ga_tracker.track_page_view("Admin Dashboard", "admin-dashboard", user.id)
         render_admin_dashboard()
     elif mode == "🚀 Beta Program":
         # Track page view
-        ga_tracker.track_page_view("Beta Program", "/beta-program", user.id)
+        ga_tracker.track_page_view("Beta Program", "beta-program", user.id)
         render_beta_program_page(user, subscription)
     elif mode == "🎧 Support":
         # Track page view
-        ga_tracker.track_page_view("Support", "/support", user.id)
+        ga_tracker.track_page_view("Support", "support", user.id)
         render_support_page(user, subscription)
     elif mode == "⚙️ Settings":
         # Track page view
-        ga_tracker.track_page_view("Settings", "/settings", user.id)
+        ga_tracker.track_page_view("Settings", "settings", user.id)
         render_settings_authenticated(user, subscription)
 
 def render_authenticated_header(user):
@@ -668,6 +684,7 @@ def render_simple_analysis_history(user):
             st.info("📝 No analysis history found. Complete an analysis to see results here!")
             
     except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         st.error(f"❌ Failed to load analysis history: {e}")
         st.info("💡 Try refreshing the page or contact support if the issue persists.")
 
@@ -678,6 +695,7 @@ def render_analysis_history(user):
         try:
             report_history_ui.render_history_page(user)
         except Exception as e:
+            logger.error(f"Unexpected error: {e}")
             st.error(f"Enhanced history unavailable: {e}")
             render_simple_analysis_history(user)
     else:
@@ -731,7 +749,7 @@ def render_single_analysis_authenticated(user, subscription):
         resume_file = st.file_uploader(
             "Choose a PDF resume file",
             type=['pdf'],
-            help=f"Upload a PDF resume for analysis (max {file_size_limit}MB)"
+            help=f"Upload a PDF resume for analysis (max {file_size_limit}MB, max_upload_size=10)"
         )
         
         # Check file size if file is uploaded
@@ -765,7 +783,7 @@ def render_single_analysis_authenticated(user, subscription):
                 "Choose a text file",
                 type=['txt'],
                 help="Upload a .txt file containing the job description"
-            )
+            , max_upload_size=10)
             jd_text = ""
             if jd_file:
                 jd_text = jd_file.read().decode('utf-8')
@@ -791,6 +809,7 @@ def render_single_analysis_authenticated(user, subscription):
                     os.unlink(tmp_path)
                     
                 except Exception as e:
+                    logger.error(f"Unexpected error: {e}")
                     # Fallback to basic text extraction
                     resume_text = f"Resume content from {resume_file.name}"
                     logger.warning(f"Failed to extract resume text: {e}")
@@ -877,7 +896,7 @@ def render_bulk_analysis_authenticated(user, subscription):
             type=['pdf'],
             accept_multiple_files=True,
             help="Upload multiple PDF resumes for batch analysis"
-        )
+        , max_upload_size=10)
         
         if resume_files:
             st.info(f"📊 {len(resume_files)} resumes uploaded")
@@ -1068,6 +1087,7 @@ def render_download_options(user, results, jd_text, is_bulk=False):
                     )
                     
             except Exception as e:
+                logger.error(f"Unexpected error: {e}")
                 st.error(f"PDF generation failed: {str(e)}")
                 st.info("Please use the Text Report option instead.")
         else:
@@ -1280,7 +1300,7 @@ def render_single_analysis():
             "Choose a PDF resume file",
             type=['pdf'],
             help="Upload a PDF resume for analysis"
-        )
+        , max_upload_size=10)
     
     with col2:
         st.subheader("📋 Job Description")
@@ -1300,7 +1320,7 @@ def render_single_analysis():
                 "Choose a text file",
                 type=['txt'],
                 help="Upload a .txt file containing the job description"
-            )
+            , max_upload_size=10)
             jd_text = ""
             if jd_file:
                 jd_text = jd_file.read().decode('utf-8')
@@ -1324,6 +1344,7 @@ def render_single_analysis():
                     os.unlink(tmp_path)
                     
                 except Exception as e:
+                    logger.error(f"Unexpected error: {e}")
                     # Fallback to basic text extraction
                     resume_text = f"Resume content from {resume_file.name}"
                     logger.warning(f"Failed to extract resume text: {e}")
@@ -1418,6 +1439,7 @@ def render_single_analysis():
                                     use_container_width=True
                                 )
                             except Exception as e:
+                                logger.error(f"Unexpected error: {e}")
                                 st.error(f"PDF generation failed: {str(e)}")
                                 st.info("Please use the Text Report option instead.")
                         else:
@@ -1443,7 +1465,7 @@ def render_bulk_analysis():
             type=['pdf'],
             accept_multiple_files=True,
             help="Upload multiple PDF resumes for batch analysis"
-        )
+        , max_upload_size=10)
         
         if resume_files:
             st.info(f"📊 {len(resume_files)} resumes uploaded")
@@ -2344,7 +2366,8 @@ def render_dashboard():
             st.metric("Total Cost", f"${usage_stats.get('total_cost', 0):.4f}")
         with col3:
             st.metric("Avg Processing Time", f"{usage_stats.get('average_processing_time', 0):.1f}s")
-    except:
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         st.info("Usage statistics not available")
 
 def render_job_matching():
@@ -2360,7 +2383,7 @@ def render_job_matching():
             "Choose your PDF resume file",
             type=['pdf'],
             help="Upload your resume to analyze against multiple job opportunities"
-        )
+        , max_upload_size=10)
         
         if resume_file:
             st.success(f"✅ Resume uploaded: {resume_file.name}")
@@ -2415,7 +2438,7 @@ def render_job_matching():
                 type=['txt'],
                 accept_multiple_files=True,
                 help="Upload multiple .txt files, each containing a job description"
-            )
+            , max_upload_size=10)
             
             if job_files:
                 for job_file in job_files:
@@ -2424,6 +2447,7 @@ def render_job_matching():
                         job_name = job_file.name.replace('.txt', '').replace('_', ' ').title()
                         jobs_data[job_name] = job_content
                     except Exception as e:
+                        logger.error(f"Unexpected error: {e}")
                         st.error(f"Error reading {job_file.name}: {str(e)}")
                 
                 if jobs_data:
@@ -2473,6 +2497,7 @@ def render_job_matching():
                                 'success': True
                             })
                         except Exception as e:
+                            logger.error(f"Unexpected error: {e}")
                             job_results.append({
                                 'job_name': job_name,
                                 'job_description': job_desc,
@@ -2624,6 +2649,7 @@ def render_job_matching():
                             st.error(f"• {failed['job_name']}: {failed['error']}")
                 
                 except Exception as e:
+                    logger.error(f"Unexpected error: {e}")
                     st.error(f"❌ Resume processing failed: {str(e)}")
     
     elif resume_file and not jobs_data:
@@ -2878,7 +2904,8 @@ def render_settings():
                 "Total Cost": f"${usage_stats.get('total_cost', 0):.4f}",
                 "Average Processing Time": f"{usage_stats.get('average_processing_time', 0):.2f}s"
             })
-    except:
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
         st.info("Usage statistics not available")
     
     # Clear Data
