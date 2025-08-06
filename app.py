@@ -60,12 +60,27 @@ from auth.registration import render_auth_page, registration_flow
 from auth.services import user_service, subscription_service, session_service, analytics_service
 from auth.models import UserRole, PlanType
 
-# Enhanced services imports with fallback
+# Enhanced services imports with proper fallback
+ENHANCED_SERVICES_AVAILABLE = False
+
+# Try to import enhanced analysis storage (this should always work)
+try:
+    from database.enhanced_analysis_storage import enhanced_analysis_storage
+    ANALYSIS_STORAGE_AVAILABLE = True
+    logger.info("Enhanced analysis storage available")
+except ImportError:
+    try:
+        from database.analysis_storage import analysis_storage as enhanced_analysis_storage
+        ANALYSIS_STORAGE_AVAILABLE = True
+        logger.info("Fallback analysis storage available")
+    except ImportError:
+        enhanced_analysis_storage = None
+        ANALYSIS_STORAGE_AVAILABLE = False
+        logger.error("No analysis storage available")
+
+# Try to import enhanced Razorpay service
 try:
     from billing.enhanced_razorpay_service import enhanced_razorpay_service
-    from database.enhanced_analysis_storage import enhanced_analysis_storage
-    from components.report_history_ui import report_history_ui
-    ENHANCED_SERVICES_AVAILABLE = True
     
     # Check if Razorpay SDK is missing and use fallback
     status_info = enhanced_razorpay_service.get_status_info()
@@ -78,17 +93,25 @@ try:
             logger.warning("Fallback Razorpay service not available")
     
 except ImportError:
-    # Fallback to original services
     try:
         from billing.fallback_razorpay_service import fallback_razorpay_service as enhanced_razorpay_service
-        from database.analysis_storage import analysis_storage as enhanced_analysis_storage
-        ENHANCED_SERVICES_AVAILABLE = True
-        logger.info("Using fallback services")
+        logger.info("Using fallback Razorpay service")
     except ImportError:
         from billing.razorpay_service import razorpay_service as enhanced_razorpay_service
-        from database.analysis_storage import analysis_storage as enhanced_analysis_storage
-        ENHANCED_SERVICES_AVAILABLE = False
-        logger.warning("Using basic services")
+        logger.warning("Using basic Razorpay service")
+
+# Try to import report history UI (optional, only for enhanced features)
+try:
+    from components.report_history_ui import report_history_ui
+    REPORT_HISTORY_AVAILABLE = True
+    logger.info("Report history UI available")
+except ImportError:
+    report_history_ui = None
+    REPORT_HISTORY_AVAILABLE = False
+    logger.info("Report history UI not available (Streamlit context required)")
+
+# Set enhanced services availability based on critical components
+ENHANCED_SERVICES_AVAILABLE = ANALYSIS_STORAGE_AVAILABLE
 
 # Analytics imports
 from analytics.google_analytics import ga_tracker, funnel_analyzer
@@ -275,35 +298,113 @@ def save_analysis_with_history(user_id: str, resume_filename: str, resume_conten
                               processing_time: float = 0):
     """Save analysis with enhanced storage and history tracking"""
     
-    if ENHANCED_SERVICES_AVAILABLE:
-        analysis_id = enhanced_analysis_storage.save_analysis(
-            user_id=user_id,
-            resume_filename=resume_filename,
-            resume_content=resume_content,
-            job_description=job_description,
-            analysis_result=analysis_result,
-            processing_time=processing_time
+    analysis_id = None
+    
+    # Always try to save to database first
+    if ANALYSIS_STORAGE_AVAILABLE and enhanced_analysis_storage:
+        try:
+            analysis_id = enhanced_analysis_storage.save_analysis(
+                user_id=user_id,
+                resume_filename=resume_filename,
+                resume_content=resume_content,
+                job_description=job_description,
+                analysis_result=analysis_result,
+                processing_time=processing_time
+            )
+            
+            if analysis_id:
+                st.success("✅ Analysis saved to your history!")
+                logger.info(f"Analysis saved to database: {analysis_id}")
+                
+                # Show quick stats if enhanced services are available
+                if ENHANCED_SERVICES_AVAILABLE:
+                    try:
+                        with st.expander("📊 Your Analysis Stats"):
+                            stats = enhanced_analysis_storage.get_user_statistics(user_id)
+                            col1, col2, col3 = st.columns(3)
+                            
+                            with col1:
+                                st.metric("Total Analyses", stats.get('total_analyses', 0))
+                            with col2:
+                                st.metric("Average Score", f"{stats.get('avg_score', 0):.1f}%")
+                            with col3:
+                                st.metric("Best Score", f"{stats.get('best_score', 0)}%")
+                    except Exception as e:
+                        logger.warning(f"Could not show analysis stats: {e}")
+            else:
+                logger.error("Analysis storage returned None")
+                
+        except Exception as e:
+            logger.error(f"Failed to save analysis to database: {e}")
+            analysis_id = None
+    
+    # Fallback: always save to session state as backup
+    if 'analysis_results' not in st.session_state:
+        st.session_state.analysis_results = []
+    st.session_state.analysis_results.append((resume_filename, analysis_result))
+    
+    # If database save failed, try direct database insertion
+    if not analysis_id:
+        try:
+            analysis_id = save_analysis_direct_to_database(
+                user_id, resume_filename, resume_content, 
+                job_description, analysis_result, processing_time
+            )
+            if analysis_id:
+                st.success("✅ Analysis saved to your history!")
+                logger.info(f"Analysis saved via direct database insertion: {analysis_id}")
+        except Exception as e:
+            logger.error(f"Direct database save also failed: {e}")
+            st.warning("⚠️ Analysis saved to session only (may not persist)")
+    
+    return analysis_id
+
+
+def save_analysis_direct_to_database(user_id: str, resume_filename: str, resume_content: str,
+                                    job_description: str, analysis_result: dict, 
+                                    processing_time: float = 0):
+    """Direct database save as ultimate fallback"""
+    try:
+        import uuid
+        from database.connection import get_db
+        
+        analysis_id = str(uuid.uuid4())
+        
+        # Extract analysis data
+        score = analysis_result.get('score', 0)
+        match_category = analysis_result.get('match_category', 'unknown')
+        
+        # Convert complex data to JSON strings
+        import json
+        analysis_result_json = json.dumps(analysis_result)
+        
+        db = get_db()
+        
+        # Insert into analysis_sessions table
+        query = """
+            INSERT INTO analysis_sessions (
+                id, user_id, resume_filename, job_description, 
+                analysis_result, score, match_category, 
+                processing_time_seconds, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        """
+        
+        params = (
+            analysis_id, user_id, resume_filename, job_description,
+            analysis_result_json, score, match_category, processing_time
         )
         
-        if analysis_id:
-            st.success("✅ Analysis saved to your history!")
-            
-            # Show quick stats
-            with st.expander("📊 Your Analysis Stats"):
-                stats = enhanced_analysis_storage.get_user_statistics(user_id)
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Total Analyses", stats.get('total_analyses', 0))
-                with col2:
-                    st.metric("Average Score", f"{stats.get('avg_score', 0):.1f}%")
-                with col3:
-                    st.metric("Best Score", f"{stats.get('best_score', 0)}%")
+        rows_affected = db.execute_command(query, params)
         
-        return analysis_id
-    else:
-        # Fallback to session state storage
-        st.session_state.analysis_results.append((resume_filename, analysis_result))
+        if rows_affected > 0:
+            logger.info(f"Direct database save successful: {analysis_id}")
+            return analysis_id
+        else:
+            logger.error("Direct database save failed: no rows affected")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Direct database save failed: {e}")
         return None
 
 def check_setup():
