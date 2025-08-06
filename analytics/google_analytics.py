@@ -278,14 +278,14 @@ class ConversionFunnelAnalyzer:
         
         query = """
             SELECT 
-                DATE(timestamp) as cohort_date,
+                DATE(created_at) as cohort_date,
                 user_id,
-                MIN(timestamp) as first_seen,
-                MAX(timestamp) as last_seen,
+                MIN(created_at) as first_seen,
+                MAX(created_at) as last_seen,
                 COUNT(*) as total_events
             FROM analytics_events 
             WHERE user_id IS NOT NULL
-            GROUP BY user_id, DATE(timestamp)
+            GROUP BY user_id, DATE(created_at)
             ORDER BY cohort_date, user_id
         """
         
@@ -355,7 +355,7 @@ def create_analytics_tables():
     analytics_indexes = [
         "CREATE INDEX IF NOT EXISTS idx_analytics_events_user_id ON analytics_events(user_id)",
         "CREATE INDEX IF NOT EXISTS idx_analytics_events_event_name ON analytics_events(event_name)",
-        "CREATE INDEX IF NOT EXISTS idx_analytics_events_timestamp ON analytics_events(timestamp)",
+        "CREATE INDEX IF NOT EXISTS idx_analytics_events_created_at ON analytics_events(created_at)",
         "CREATE INDEX IF NOT EXISTS idx_analytics_events_session_id ON analytics_events(session_id)"
     ]
     
