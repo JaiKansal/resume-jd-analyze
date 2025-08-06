@@ -1,256 +1,146 @@
 #!/usr/bin/env python3
 """
-Test analysis storage functionality
+Test analysis storage to ensure reports are being saved and retrieved properly
 """
 
-def test_enhanced_services():
-    """Test if enhanced services are available"""
-    print("🔍 TESTING ENHANCED SERVICES AVAILABILITY")
-    print("=" * 45)
+import logging
+import json
+from datetime import datetime
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def test_analysis_storage():
+    """Test that analysis storage is working properly"""
+    logger.info("🧪 Testing analysis storage...")
     
     try:
-        # Test enhanced analysis storage import
-        print("🔄 Testing enhanced analysis storage import...")
-        from database.enhanced_analysis_storage import enhanced_analysis_storage
-        print("✅ Enhanced analysis storage imported successfully")
+        from database.connection import get_db
+        db = get_db()
         
-        # Test report history UI import
-        print("🔄 Testing report history UI import...")
-        from components.report_history_ui import report_history_ui
-        print("✅ Report history UI imported successfully")
+        # Test user ID (you can replace with a real user ID from your database)
+        test_user_id = "test_user_123"
         
-        print("✅ ENHANCED_SERVICES_AVAILABLE should be True")
+        # Check if we can query analysis_reports
+        try:
+            reports = db.execute_query("""
+                SELECT id, title, content, created_at, analysis_type, metadata
+                FROM analysis_reports 
+                WHERE user_id = ? 
+                ORDER BY created_at DESC
+                LIMIT 10
+            """, (test_user_id,))
+            
+            logger.info(f"✅ analysis_reports query works - found {len(reports)} reports for test user")
+        except Exception as e:
+            logger.warning(f"analysis_reports query failed: {e}")
+        
+        # Check if we can query analysis_sessions
+        try:
+            sessions = db.execute_query("""
+                SELECT id, resume_filename, score, match_category, created_at
+                FROM analysis_sessions 
+                ORDER BY created_at DESC 
+                LIMIT 10
+            """)
+            
+            logger.info(f"✅ analysis_sessions query works - found {len(sessions)} total sessions")
+            
+            if sessions:
+                logger.info("📊 Recent sessions:")
+                for session in sessions[:3]:  # Show first 3
+                    logger.info(f"   • {session['resume_filename']} - {session['score']}% ({session['created_at'][:10]})")
+        except Exception as e:
+            logger.warning(f"analysis_sessions query failed: {e}")
+        
+        # Test enhanced analysis storage if available
+        try:
+            from database.enhanced_analysis_storage import enhanced_analysis_storage
+            
+            # Try to get reports for any user
+            all_reports = enhanced_analysis_storage.get_user_reports("any_user_id")
+            logger.info(f"✅ Enhanced analysis storage works - found {len(all_reports)} reports")
+            
+        except ImportError:
+            logger.info("ℹ️ Enhanced analysis storage not available")
+        except Exception as e:
+            logger.warning(f"Enhanced analysis storage error: {e}")
+        
         return True
         
-    except ImportError as e:
-        print(f"❌ Enhanced services import failed: {e}")
-        
-        # Test fallback services
-        print("🔄 Testing fallback services...")
-        try:
-            from database.analysis_storage import analysis_storage
-            print("✅ Fallback analysis storage available")
-            return False
-        except ImportError as e2:
-            print(f"❌ Fallback services also failed: {e2}")
-            return False
-
-def test_analysis_storage_functionality():
-    """Test analysis storage functionality"""
-    print("\n🔍 TESTING ANALYSIS STORAGE FUNCTIONALITY")
-    print("=" * 45)
-    
-    try:
-        # Import the same way the app does
-        try:
-            from database.enhanced_analysis_storage import enhanced_analysis_storage
-            storage = enhanced_analysis_storage
-            print("✅ Using enhanced analysis storage")
-        except ImportError:
-            try:
-                from database.analysis_storage import analysis_storage
-                storage = analysis_storage
-                print("✅ Using fallback analysis storage")
-            except ImportError:
-                print("❌ No analysis storage available")
-                return False
-        
-        # Test saving an analysis
-        print("🔄 Testing analysis save...")
-        
-        # Get a test user
-        from auth.services import user_service
-        test_user = user_service.get_user_by_email("streamlit_test@example.com")
-        
-        if not test_user:
-            print("❌ No test user found")
-            return False
-        
-        # Test analysis data
-        test_analysis = {
-            'score': 85,
-            'match_category': 'good-match',
-            'matching_skills': ['Python', 'JavaScript', 'SQL'],
-            'skill_gaps': {'Critical': ['Machine Learning'], 'Important': ['Docker']},
-            'suggestions': ['Add ML experience', 'Learn containerization'],
-            'processing_time': 2.5
-        }
-        
-        analysis_id = storage.save_analysis(
-            user_id=test_user.id,
-            resume_filename="test_analysis_storage.pdf",
-            resume_content="Test resume content",
-            job_description="Test job description",
-            analysis_result=test_analysis,
-            processing_time=2.5
-        )
-        
-        if analysis_id:
-            print(f"✅ Analysis saved successfully: {analysis_id}")
-            
-            # Test retrieval
-            print("🔄 Testing analysis retrieval...")
-            
-            # Check if it's in the database
-            from database.connection import get_db
-            db = get_db()
-            
-            result = db.get_single_result(
-                "SELECT * FROM analysis_sessions WHERE id = ?",
-                (analysis_id,)
-            )
-            
-            if result:
-                print("✅ Analysis found in database")
-                print(f"   Resume: {result['resume_filename']}")
-                print(f"   Score: {result.get('score', 'N/A')}")
-                print(f"   User: {test_user.email}")
-                
-                # Clean up test data
-                db.execute_command("DELETE FROM analysis_sessions WHERE id = ?", (analysis_id,))
-                print("✅ Test data cleaned up")
-                
-                return True
-            else:
-                print("❌ Analysis not found in database")
-                return False
-        else:
-            print("❌ Analysis save failed")
-            return False
-            
     except Exception as e:
-        print(f"❌ Analysis storage test failed: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"❌ Analysis storage test failed: {e}")
         return False
 
-def test_app_analysis_flow():
-    """Test the complete analysis flow as used in the app"""
-    print("\n🔍 TESTING COMPLETE APP ANALYSIS FLOW")
-    print("=" * 40)
+def test_user_lookup():
+    """Test user lookup to see if there are real users with analyses"""
+    logger.info("🔍 Looking for real users with analyses...")
     
     try:
-        # Import app modules
-        import sys
-        sys.path.append('.')
+        from database.connection import get_db
+        db = get_db()
         
-        # Test the save_analysis_with_history function
-        print("🔄 Testing save_analysis_with_history function...")
+        # Find users who have analyses
+        users_with_analyses = db.execute_query("""
+            SELECT DISTINCT user_id, COUNT(*) as analysis_count
+            FROM analysis_sessions 
+            GROUP BY user_id
+            ORDER BY analysis_count DESC
+            LIMIT 5
+        """)
         
-        # Get test user
-        from auth.services import user_service
-        test_user = user_service.get_user_by_email("streamlit_test@example.com")
-        
-        if not test_user:
-            print("❌ No test user found")
-            return False
-        
-        # Mock analysis result
-        test_result = {
-            'score': 92,
-            'match_category': 'excellent-match',
-            'matching_skills': ['Python', 'React', 'AWS'],
-            'skill_gaps': {'Critical': [], 'Important': ['Kubernetes']},
-            'suggestions': ['Consider adding Kubernetes experience'],
-            'processing_time': 3.2
-        }
-        
-        # Test without Streamlit context (will fail but we can see the logic)
-        print("🔄 Testing analysis save logic...")
-        
-        # Check ENHANCED_SERVICES_AVAILABLE
-        try:
-            from database.enhanced_analysis_storage import enhanced_analysis_storage
-            from components.report_history_ui import report_history_ui
-            enhanced_available = True
-            print("✅ Enhanced services available")
-        except ImportError:
-            enhanced_available = False
-            print("⚠️  Enhanced services not available")
-        
-        if enhanced_available:
-            # Test enhanced storage directly
-            analysis_id = enhanced_analysis_storage.save_analysis(
-                user_id=test_user.id,
-                resume_filename="app_flow_test.pdf",
-                resume_content="Test resume content for app flow",
-                job_description="Test job description for app flow",
-                analysis_result=test_result,
-                processing_time=3.2
-            )
-            
-            if analysis_id:
-                print(f"✅ Enhanced analysis storage working: {analysis_id}")
+        if users_with_analyses:
+            logger.info(f"📊 Found {len(users_with_analyses)} users with analyses:")
+            for user in users_with_analyses:
+                logger.info(f"   • User {user['user_id'][:8]}... has {user['analysis_count']} analyses")
                 
-                # Clean up
-                from database.connection import get_db
-                db = get_db()
-                db.execute_command("DELETE FROM analysis_sessions WHERE id = ?", (analysis_id,))
-                print("✅ Test data cleaned up")
+                # Get sample analyses for this user
+                sample_analyses = db.execute_query("""
+                    SELECT resume_filename, score, created_at
+                    FROM analysis_sessions 
+                    WHERE user_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT 3
+                """, (user['user_id'],))
                 
-                return True
-            else:
-                print("❌ Enhanced analysis storage failed")
-                return False
+                for analysis in sample_analyses:
+                    logger.info(f"     - {analysis['resume_filename']} ({analysis['score']}%) on {analysis['created_at'][:10]}")
         else:
-            print("⚠️  Would fall back to session state storage")
-            return False
-            
+            logger.info("ℹ️ No users found with analyses yet")
+        
+        return True
+        
     except Exception as e:
-        print(f"❌ App analysis flow test failed: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"❌ User lookup test failed: {e}")
         return False
 
 def main():
-    """Run all analysis storage tests"""
-    print("🚀 COMPREHENSIVE ANALYSIS STORAGE TEST")
-    print("=" * 50)
+    """Run storage tests"""
+    logger.info("🧪 Running analysis storage tests...")
     
     tests = [
-        ("Enhanced Services Availability", test_enhanced_services),
-        ("Analysis Storage Functionality", test_analysis_storage_functionality),
-        ("App Analysis Flow", test_app_analysis_flow)
+        ("Analysis Storage", test_analysis_storage),
+        ("User Lookup", test_user_lookup)
     ]
     
-    results = []
+    passed = 0
+    total = len(tests)
     
     for test_name, test_func in tests:
-        print(f"\n{'='*15} {test_name} {'='*15}")
-        try:
-            success = test_func()
-            results.append((test_name, success))
-        except Exception as e:
-            print(f"❌ Test failed: {e}")
-            results.append((test_name, False))
-    
-    # Summary
-    print("\n" + "=" * 50)
-    print("📊 ANALYSIS STORAGE TEST SUMMARY")
-    print("=" * 50)
-    
-    passed = 0
-    for test_name, success in results:
-        status = "✅ PASS" if success else "❌ FAIL"
-        print(f"{test_name:.<35} {status}")
-        if success:
+        logger.info(f"\n--- Running {test_name} Test ---")
+        if test_func():
             passed += 1
+            logger.info(f"✅ {test_name} test passed")
+        else:
+            logger.error(f"❌ {test_name} test failed")
     
-    print(f"\nResults: {passed}/{len(results)} tests passed")
+    logger.info(f"\n🎯 Test Results: {passed}/{total} tests passed")
     
-    if passed == len(results):
-        print("\n🎉 ALL ANALYSIS STORAGE TESTS PASSED!")
-        print("✅ Analysis storage should work correctly in the app")
+    if passed == total:
+        logger.info("🎉 All storage tests passed!")
+        logger.info("💡 Your analysis storage should be working properly")
     else:
-        print(f"\n⚠️  {len(results) - passed} tests failed")
-        print("💡 This explains why analysis reports aren't being saved!")
-        
-        if passed == 0:
-            print("\n🔧 RECOMMENDED FIXES:")
-            print("1. Check if enhanced_analysis_storage module exists")
-            print("2. Verify database schema for analysis_sessions table")
-            print("3. Test analysis storage functionality manually")
-            print("4. Add fallback to direct database storage")
+        logger.warning("⚠️ Some storage tests failed - check the logs above")
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,38 @@
+{
+  "issues": [
+    {
+      "severity": "HIGH",
+      "component": "Requirements",
+      "issue": "Missing packages: ['sqlite3']",
+      "fix": "Add missing packages to requirements.txt"
+    },
+    {
+      "severity": "CRITICAL",
+      "component": "Import Error",
+      "issue": "Cannot import streamlit: No module named 'streamlit'",
+      "fix": "Install streamlit: pip install streamlit"
+    },
+    {
+      "severity": "CRITICAL",
+      "component": "Import Error",
+      "issue": "Cannot import pandas: No module named 'pandas'",
+      "fix": "Install pandas: pip install pandas"
+    }
+  ],
+  "critical_errors": [
+    "Import Error: Cannot import streamlit: No module named 'streamlit'",
+    "Import Error: Cannot import pandas: No module named 'pandas'"
+  ],
+  "fixes": {
+    "requirements_txt": "streamlit>=1.28.0\npandas>=1.5.0\nsqlite3\npython-dotenv>=1.0.0\nbcrypt>=4.0.0\npsycopg2-binary>=2.9.0\nreportlab>=4.0.0\nPyPDF2>=3.0.0\nrequests>=2.28.0\npython-multipart>=0.0.6\npydantic>=2.0.0\nemail-validator>=2.0.0\n",
+    "streamlit_config": "[global]\ndevelopmentMode = false\nshowWarningOnDirectExecution = false\n\n[server]\nheadless = true\nenableCORS = false\nenableXsrfProtection = false\nmaxUploadSize = 200\n\n[browser]\ngatherUsageStats = false\n\n[theme]\nprimaryColor = \"#FF6B35\"\nbackgroundColor = \"#FFFFFF\"\nsecondaryBackgroundColor = \"#F0F2F6\"\ntextColor = \"#262730\"\n",
+    "database_init": "-- Complete database schema\nCREATE TABLE IF NOT EXISTS users (\n    id TEXT PRIMARY KEY,\n    email TEXT UNIQUE NOT NULL,\n    password_hash TEXT NOT NULL,\n    first_name TEXT,\n    last_name TEXT,\n    company_name TEXT,\n    role TEXT DEFAULT 'individual',\n    phone TEXT,\n    country TEXT,\n    timezone TEXT DEFAULT 'UTC',\n    email_verified INTEGER DEFAULT 0,\n    email_verification_token TEXT,\n    password_reset_token TEXT,\n    password_reset_expires TIMESTAMP,\n    last_login TIMESTAMP,\n    login_count INTEGER DEFAULT 0,\n    is_active INTEGER DEFAULT 1,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n);\n\nCREATE TABLE IF NOT EXISTS analysis_sessions (\n    id TEXT PRIMARY KEY,\n    user_id TEXT NOT NULL,\n    resume_filename TEXT,\n    score INTEGER,\n    match_category TEXT,\n    analysis_result TEXT,\n    processing_time_seconds REAL,\n    status TEXT DEFAULT 'completed',\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    FOREIGN KEY (user_id) REFERENCES users (id)\n);\n\nCREATE TABLE IF NOT EXISTS engagement_events (\n    id TEXT PRIMARY KEY,\n    user_id TEXT NOT NULL,\n    event_type TEXT NOT NULL,\n    event_data TEXT,\n    page_path TEXT,\n    session_id TEXT,\n    parameters TEXT,\n    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,\n    FOREIGN KEY (user_id) REFERENCES users (id)\n);\n\nCREATE INDEX IF NOT EXISTS idx_users_email ON users(email);\nCREATE INDEX IF NOT EXISTS idx_analysis_sessions_user_id ON analysis_sessions(user_id);\nCREATE INDEX IF NOT EXISTS idx_engagement_events_user_id ON engagement_events(user_id);\n",
+    "app_structure": {
+      "startup.py": "\"\"\"Startup initialization for Streamlit app\"\"\"\nimport os\nimport sys\nfrom pathlib import Path\n\n# Add project root to Python path\nproject_root = Path(__file__).parent\nif str(project_root) not in sys.path:\n    sys.path.insert(0, str(project_root))\n\n# Set environment variables\nos.environ.setdefault('PYTHONPATH', str(project_root))\n",
+      "packages.txt": "sqlite3\nlibsqlite3-dev\n",
+      ".streamlit/secrets.toml": "# Streamlit Cloud Secrets\nPERPLEXITY_API_KEY = \"your_api_key_here\"\nRAZORPAY_KEY_ID = \"your_razorpay_key_id\"\nRAZORPAY_KEY_SECRET = \"your_razorpay_secret\"\nDATABASE_URL = \"sqlite:///data/app.db\"\nENVIRONMENT = \"production\"\nSECRET_KEY = \"your-secret-key\"\n"
+    },
+    "environment": ".env file template:\nPERPLEXITY_API_KEY=your_perplexity_api_key_here\nRAZORPAY_KEY_ID=your_razorpay_key_id\nRAZORPAY_KEY_SECRET=your_razorpay_secret\nDATABASE_URL=sqlite:///data/app.db\nENVIRONMENT=development\nSECRET_KEY=dev-secret-key-change-in-production\n"
+  },
+  "total_issues": 3
+}

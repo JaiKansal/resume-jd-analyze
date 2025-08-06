@@ -24,6 +24,8 @@ from io import BytesIO
 # Set up logging
 logger = logging.getLogger(__name__)
 
+# Deployment fix timestamp: 2025-08-06 15:50 UTC
+
 def validate_user_session():
     """Validate current user session and refresh if needed"""
     if not st.session_state.get('user_authenticated', False):
@@ -3043,8 +3045,7 @@ def render_settings():
             else:
                 st.info("No data to export")
 
-if __name__ == "__main__":
-    main()
+# Main block removed for Streamlit Cloud compatibility
 def render_simple_working_history(user):
     """Robust analysis history that actually works"""
     st.title("📊 Analysis History")
