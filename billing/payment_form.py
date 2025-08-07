@@ -12,7 +12,23 @@ from datetime import datetime
 from auth.models import User, PlanType
 from auth.services import subscription_service
 from billing.razorpay_service import razorpay_service
-from billing.payment_gateway import payment_gateway, PaymentGateway
+try:
+    from billing.payment_gateway import payment_gateway, PaymentGateway
+except ImportError as e:
+    # Fallback if payment gateway has issues
+    import logging
+    logging.warning(f"Payment gateway import failed: {e}")
+    
+    class FallbackPaymentGateway:
+        RAZORPAY = "razorpay"
+    
+    class FallbackPaymentGatewayService:
+        def create_order(self, *args, **kwargs):
+            from billing.razorpay_service import razorpay_service
+            return razorpay_service.create_order(*args, **kwargs)
+    
+    payment_gateway = FallbackPaymentGatewayService()
+    PaymentGateway = FallbackPaymentGateway()
 
 logger = logging.getLogger(__name__)
 

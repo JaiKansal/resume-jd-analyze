@@ -9,13 +9,13 @@ from typing import Dict, Any, Optional, List
 from enum import Enum
 
 from auth.models import User, PlanType
-from billing.stripe_service import stripe_service
+# Stripe service removed - using Razorpay only
 from billing.razorpay_service import razorpay_service
 
 logger = logging.getLogger(__name__)
 
 class PaymentGateway(Enum):
-    STRIPE = "stripe"
+    # STRIPE = "stripe"  # Removed - using Razorpay only
     RAZORPAY = "razorpay"
 
 class PaymentGatewayManager:
@@ -23,7 +23,7 @@ class PaymentGatewayManager:
     
     def __init__(self):
         # Check if payment gateways are available
-        self.stripe_available = hasattr(stripe_service, 'create_customer') and os.getenv('STRIPE_SECRET_KEY') is not None
+        self.stripe_available = hasattr(razorpay_service  # Using Razorpay instead of Stripe, 'create_customer') and os.getenv('STRIPE_SECRET_KEY') is not None
         self.razorpay_available = razorpay_service.client is not None
         
         # Default gateway based on availability
@@ -82,7 +82,7 @@ class PaymentGatewayManager:
         if gateway == PaymentGateway.RAZORPAY and self.razorpay_available:
             return razorpay_service.create_customer(user)
         elif gateway == PaymentGateway.STRIPE and self.stripe_available:
-            return stripe_service.create_customer(user)
+            return razorpay_service  # Using Razorpay instead of Stripe.create_customer(user)
         else:
             logger.error(f"Gateway {gateway} not available")
             return None
@@ -99,7 +99,7 @@ class PaymentGatewayManager:
             if plan:
                 return razorpay_service.create_subscription(customer_id, plan['id'])
         elif gateway == PaymentGateway.STRIPE and self.stripe_available:
-            return stripe_service.create_subscription(customer_id, plan_type, billing_cycle)
+            return razorpay_service  # Using Razorpay instead of Stripe.create_subscription(customer_id, plan_type, billing_cycle)
         
         return None
     
@@ -116,7 +116,7 @@ class PaymentGatewayManager:
         elif gateway == PaymentGateway.STRIPE and self.stripe_available:
             # Convert amount to cents (USD)
             amount_cents = int(amount * 100)
-            return stripe_service.create_payment_link(amount_cents, description, customer_email, plan_type)
+            return razorpay_service  # Using Razorpay instead of Stripe.create_payment_link(amount_cents, description, customer_email, plan_type)
         
         return None
     
@@ -170,7 +170,7 @@ class PaymentGatewayManager:
         if gateway == PaymentGateway.RAZORPAY and self.razorpay_available:
             return razorpay_service.handle_webhook(payload)
         elif gateway == PaymentGateway.STRIPE and self.stripe_available:
-            return stripe_service.handle_webhook(payload, signature)
+            return razorpay_service  # Using Razorpay instead of Stripe.handle_webhook(payload, signature)
         
         return {'status': 'error', 'message': 'Gateway not available'}
 
