@@ -4,8 +4,18 @@ Resume + JD Analyzer - Web Application
 A fully productized web interface for resume and job description matching
 """
 
-# Startup initialization (must be first)
-import startup
+# Inline startup initialization
+import os
+import sys
+from pathlib import Path
+
+# Add project root to Python path
+project_root = Path(__file__).parent.absolute()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# Set environment variables
+os.environ.setdefault('PYTHONPATH', str(project_root))
 
 import streamlit as st
 import os
