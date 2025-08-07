@@ -491,6 +491,7 @@ def save_analysis_direct_to_database(user_id: str, resume_filename: str, resume_
     try:
         import uuid
         from database.connection import get_db
+from database.production_connection import production_db
         
         analysis_id = str(uuid.uuid4())
         
@@ -875,6 +876,7 @@ def render_simple_analysis_history(user):
     
     try:
         from database.connection import get_db
+from database.production_connection import production_db
         
         db = get_db()
         
@@ -3169,6 +3171,7 @@ def render_simple_working_history(user):
     
     try:
         from database.connection import get_db
+from database.production_connection import production_db
         db = get_db()
         
         # Try multiple table queries to find reports

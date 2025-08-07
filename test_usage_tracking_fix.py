@@ -7,7 +7,7 @@ import re
 
 def test_no_problematic_reruns():
     """Test that problematic st.rerun() calls are removed"""
-    print("🧪 Testing for problematic st.rerun() calls...")
+    print("🧪 Testing for problematic st.rerun() calls..."
     
     try:
         with open('app.py', 'r') as f:
