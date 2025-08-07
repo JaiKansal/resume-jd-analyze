@@ -68,7 +68,7 @@ def validate_user_session():
 
 
 # Authentication imports
-from auth.registration import render_auth_page, registration_flow
+from auth.registration import render_auth_page
 from auth.services import user_service, subscription_service, session_service, analytics_service
 from auth.models import UserRole, PlanType
 
@@ -491,7 +491,7 @@ def save_analysis_direct_to_database(user_id: str, resume_filename: str, resume_
     try:
         import uuid
         from database.connection import get_db
-from database.production_connection import production_db
+        from database.production_connection import production_db
         
         analysis_id = str(uuid.uuid4())
         
