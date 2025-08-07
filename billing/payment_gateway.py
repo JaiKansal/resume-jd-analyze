@@ -23,7 +23,7 @@ class PaymentGatewayManager:
     
     def __init__(self):
         # Check if payment gateways are available
-        self.stripe_available = hasattr(razorpay_service  # Using Razorpay instead of Stripe, 'create_customer') and os.getenv('STRIPE_SECRET_KEY') is not None
+        self.stripe_available = hasattr(razorpay_service)  # Using Razorpay instead of Stripe, 'create_customer') and os.getenv('STRIPE_SECRET_KEY') is not None
         self.razorpay_available = razorpay_service.client is not None
         
         # Default gateway based on availability
