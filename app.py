@@ -876,7 +876,7 @@ def render_simple_analysis_history(user):
     
     try:
         from database.connection import get_db
-from database.production_connection import production_db
+        from database.production_connection import production_db
         
         db = get_db()
         
@@ -3171,7 +3171,7 @@ def render_simple_working_history(user):
     
     try:
         from database.connection import get_db
-from database.production_connection import production_db
+        from database.production_connection import production_db
         db = get_db()
         
         # Try multiple table queries to find reports
