@@ -1,1 +1,1 @@
-# Analytics module for Resume + JD Analyzer
+# Analytics package

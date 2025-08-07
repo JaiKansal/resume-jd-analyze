@@ -90,50 +90,110 @@ except ImportError:
         ANALYSIS_STORAGE_AVAILABLE = False
         logger.error("No analysis storage available")
 
-# Try to import enhanced Razorpay service
+# Try to import enhanced Razorpay service with comprehensive error handling
 try:
     from billing.enhanced_razorpay_service import enhanced_razorpay_service
     
     # Check if Razorpay SDK is missing and use fallback
-    status_info = enhanced_razorpay_service.get_status_info()
-    if status_info.get('status') == 'sdk_missing':
-        try:
-            from billing.fallback_razorpay_service import fallback_razorpay_service
-            enhanced_razorpay_service = fallback_razorpay_service
-            logger.info("Using fallback Razorpay service (Direct API)")
-        except ImportError:
-            logger.warning("Fallback Razorpay service not available")
+    try:
+        status_info = enhanced_razorpay_service.get_status_info()
+        if status_info.get('status') == 'sdk_missing':
+            try:
+                from billing.fallback_razorpay_service import fallback_razorpay_service
+                enhanced_razorpay_service = fallback_razorpay_service
+                logger.info("Using fallback Razorpay service (Direct API)")
+            except ImportError:
+                logger.warning("Fallback Razorpay service not available")
+        else:
+            logger.info("✅ Enhanced Razorpay service imported successfully")
+    except Exception as e:
+        logger.warning(f"Razorpay service status check failed: {e}")
     
-except ImportError:
+except ImportError as e:
+    logger.warning(f"Enhanced Razorpay service not available: {e}")
     try:
         from billing.fallback_razorpay_service import fallback_razorpay_service as enhanced_razorpay_service
         logger.info("Using fallback Razorpay service")
-    except ImportError:
-        from billing.razorpay_service import razorpay_service as enhanced_razorpay_service
-        logger.warning("Using basic Razorpay service")
+    except ImportError as e2:
+        logger.warning(f"Fallback Razorpay service not available: {e2}")
+        try:
+            from billing.razorpay_service import razorpay_service as enhanced_razorpay_service
+            logger.info("Using basic Razorpay service")
+        except ImportError as e3:
+            logger.error(f"No Razorpay service available: {e3}")
+            # Create minimal fallback
+            class FallbackRazorpayService:
+                def create_order(self, *args, **kwargs): 
+                    return {"error": "Payment service not available"}
+                def verify_payment(self, *args, **kwargs): 
+                    return False
+                def get_status_info(self): 
+                    return {"status": "unavailable"}
+            
+            enhanced_razorpay_service = FallbackRazorpayService()
+            logger.info("Using minimal Razorpay fallback")
 
 # Try to import report history UI (optional, only for enhanced features)
 try:
     from components.fixed_report_history_ui import fixed_report_history_ui as report_history_ui
     REPORT_HISTORY_AVAILABLE = True
-    logger.info("Fixed report history UI available")
-except ImportError:
+    logger.info("✅ Fixed report history UI available")
+except ImportError as e:
+    logger.warning(f"Fixed report history UI not available: {e}")
     try:
         from components.report_history_ui import report_history_ui
         REPORT_HISTORY_AVAILABLE = True
-        logger.info("Fallback report history UI available")
-    except ImportError:
-        report_history_ui = None
-        REPORT_HISTORY_AVAILABLE = False
-        logger.info("Report history UI not available (Streamlit context required)")
+        logger.info("✅ Fallback report history UI available")
+    except ImportError as e2:
+        logger.warning(f"Report history UI not available: {e2}")
+        # Create minimal fallback
+        class FallbackReportHistoryUI:
+            def render_history_page(self, user):
+                import streamlit as st
+                st.info("📝 Report history feature not available in this deployment")
+                st.info("💡 Basic functionality is still available")
+        
+        report_history_ui = FallbackReportHistoryUI()
+        REPORT_HISTORY_AVAILABLE = True
+        logger.info("✅ Using fallback report history UI")
 
 # Set enhanced services availability based on critical components
 ENHANCED_SERVICES_AVAILABLE = ANALYSIS_STORAGE_AVAILABLE
 
-# Analytics imports
-from analytics.google_analytics import ga_tracker, funnel_analyzer
-from analytics.admin_dashboard import render_admin_dashboard
-from analytics.user_engagement import engagement_tracker
+# Analytics imports with error handling
+try:
+    from analytics.google_analytics import ga_tracker, funnel_analyzer
+    logger.info("✅ Google Analytics imported successfully")
+except ImportError as e:
+    logger.warning(f"Google Analytics not available: {e}")
+    # Create fallback objects
+    class FallbackTracker:
+        def track_event(self, *args, **kwargs): pass
+        def track_page_view(self, *args, **kwargs): pass
+        def track_conversion(self, *args, **kwargs): pass
+    
+    ga_tracker = FallbackTracker()
+    funnel_analyzer = FallbackTracker()
+
+try:
+    from analytics.admin_dashboard import render_admin_dashboard
+    logger.info("✅ Admin dashboard imported successfully")
+except ImportError as e:
+    logger.warning(f"Admin dashboard not available: {e}")
+    def render_admin_dashboard():
+        import streamlit as st
+        st.info("Admin dashboard not available in this deployment")
+
+try:
+    from analytics.user_engagement import engagement_tracker
+    logger.info("✅ User engagement tracker imported successfully")
+except ImportError as e:
+    logger.warning(f"User engagement tracker not available: {e}")
+    class FallbackEngagementTracker:
+        def track_user_action(self, *args, **kwargs): pass
+        def get_user_engagement(self, *args, **kwargs): return {}
+    
+    engagement_tracker = FallbackEngagementTracker()
 
 # PDF imports - will be loaded conditionally
 try:
@@ -144,9 +204,10 @@ try:
     from reportlab.lib import colors
     from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
     PDF_AVAILABLE = True
-except ImportError:
+    logger.info("✅ ReportLab PDF components imported successfully")
+except ImportError as e:
     PDF_AVAILABLE = False
-    print("⚠️  ReportLab not available. PDF generation will be disabled.")
+    logger.warning(f"ReportLab not available: {e}. PDF generation will be disabled.")
 
 # Import our core functionality with comprehensive error handling
 try:

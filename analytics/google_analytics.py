@@ -1,4 +1,37 @@
 """
+Minimal Google Analytics fallback
+"""
+
+import logging
+logger = logging.getLogger(__name__)
+
+class FallbackGATracker:
+    def __init__(self):
+        logger.warning("Using fallback Google Analytics tracker")
+    
+    def track_event(self, *args, **kwargs):
+        pass
+    
+    def track_page_view(self, *args, **kwargs):
+        pass
+    
+    def track_conversion(self, *args, **kwargs):
+        pass
+
+class FallbackFunnelAnalyzer:
+    def __init__(self):
+        logger.warning("Using fallback funnel analyzer")
+    
+    def analyze_funnel(self, *args, **kwargs):
+        return {}
+
+# Create instances
+ga_tracker = FallbackGATracker()
+funnel_analyzer = FallbackFunnelAnalyzer()
+
+
+# Original content below:
+"""
 Google Analytics integration for Resume + JD Analyzer
 Handles event tracking, conversion funnel analysis, and user engagement metrics
 """
