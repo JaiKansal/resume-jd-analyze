@@ -420,12 +420,12 @@ class RegistrationFlow:
                         else:
                             # For free plan, create subscription directly
                             subscription = subscription_service.create_subscription(
-                                user['id'], 
+                                user.id, 
                                 selected_plan.id
                             )
                             
                             # Create session and complete registration
-                            session = session_service.create_session(user['id'])
+                            session = session_service.create_session(user.id)
                             
                             # Update session state
                             st.session_state.user_authenticated = True
@@ -434,7 +434,7 @@ class RegistrationFlow:
                             st.session_state.registration_step = 6  # Skip payment step for free plan
                         
                         # Track conversion event
-                        self.track_conversion_event(user['id'], 'registration_completed', {
+                        self.track_conversion_event(user.id, 'registration_completed', {
                             'user_type': data['user_type'],
                             'selected_plan': selected_plan.plan_type.value,
                             'marketing_consent': data.get('marketing_consent', False)
@@ -516,7 +516,7 @@ class RegistrationFlow:
         if st.button("💳 Pay with Razorpay", type="primary", use_container_width=True):
             try:
                 # Get user object
-                user = user_service.get_user_by_id(user['id'])
+                user = user_service.get_user_by_id(user.id)
                 if not user:
                     st.error("User not found. Please contact support.")
                     return
@@ -567,7 +567,7 @@ class RegistrationFlow:
                         
                         # Create subscription
                         subscription = subscription_service.create_subscription(
-                            user['id'], 
+                            user.id, 
                             selected_plan.id
                         )
                         
@@ -653,7 +653,7 @@ class RegistrationFlow:
         if st.button("🚀 Start Using Resume + JD Analyzer", type="primary", use_container_width=True):
             # Track onboarding completion
             if user and hasattr(user, 'id'):
-                self.track_conversion_event(user['id'], 'onboarding_completed', {
+                self.track_conversion_event(user.id, 'onboarding_completed', {
                     'user_type': user_type
                 })
             
@@ -896,7 +896,7 @@ def render_login_form():
                     # Verify authentication was successful
                     if user:
                         # Double-check user exists and is active
-                        verified_user = user_service.get_user_by_id(user['id'])
+                        verified_user = user_service.get_user_by_id(user.id)
                         if not verified_user or not verified_user.is_active:
                             st.error("Account is inactive or not found")
                             return
@@ -904,7 +904,7 @@ def render_login_form():
                     
                     if user:
                         # Create session
-                        session = session_service.create_session(user['id'])
+                        session = session_service.create_session(user.id)
                         
                         # Update session state
                         st.session_state.user_authenticated = True
