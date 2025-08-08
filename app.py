@@ -9,6 +9,16 @@ import os
 import sys
 from pathlib import Path
 from billing.enhanced_razorpay_service import enhanced_razorpay_service
+import streamlit as st
+import psycopg2
+
+try:
+    DATABASE_URL = st.secrets["app"]["DATABASE_URL"]
+    conn = psycopg2.connect(DATABASE_URL)
+    st.success("✅ Connected to Neon PostgreSQL successfully!")
+    conn.close()
+except Exception as e:
+    st.error(f"Database connection failed: {e}")
 
 # Add project root to Python path
 project_root = Path(__file__).parent.absolute()
