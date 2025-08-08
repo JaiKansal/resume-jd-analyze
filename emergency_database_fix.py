@@ -37,7 +37,7 @@ def fix_engagement_events_table():
                 session_id TEXT,
                 page_path TEXT,
                 parameters TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMPTZ DEFAULT NOW()
             )
         """)
         

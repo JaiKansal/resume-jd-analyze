@@ -405,8 +405,8 @@ def create_engagement_tables():
             user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
             event_type VARCHAR(50) NOT NULL,
             parameters TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            timestamp TIMESTAMPTZ DEFAULT NOW(),
+            created_at TIMESTAMPTZ DEFAULT NOW()
         )
     """
     

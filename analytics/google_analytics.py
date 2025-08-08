@@ -379,8 +379,8 @@ def create_analytics_tables():
             user_id TEXT,
             session_id TEXT,
             parameters TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            timestamp TIMESTAMPTZ DEFAULT NOW(),
+            created_at TIMESTAMPTZ DEFAULT NOW()
         )
     """
     
