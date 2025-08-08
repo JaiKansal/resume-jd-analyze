@@ -1334,11 +1334,11 @@ def render_bulk_analysis_authenticated(user, subscription):
             
             # Increment subscription usage count for bulk analysis
             try:
-                        service = get_subscription_service()
-                        if service:
-                            service.increment_usage(user.id)
-                    except Exception as e:
-                        logger.error(f"Failed to increment usage: {e}")
+                service = get_subscription_service()
+                if service:
+                    service.increment_usage(user.id)
+            except Exception as e:
+                logger.error(f"Failed to increment usage: {e}")
             
             # Track usage with billing system (includes usage increment)
             from billing.usage_tracker import usage_monitor
