@@ -316,6 +316,52 @@ class SubscriptionService:
             logger.error(f"Failed to update subscription {subscription.id}: {e}")
             return False
     
+    def increment_usage(self, user_id: str) -> bool:
+        """Increment monthly analysis usage for user's subscription"""
+        try:
+            query = """
+                UPDATE subscriptions 
+                SET monthly_analysis_used = monthly_analysis_used + 1,
+                    updated_at = %s
+                WHERE user_id = %s AND status = 'active'
+            """
+            
+            params = (datetime.utcnow(), user_id)
+            rows_affected = self.db.execute_command(query, params)
+            
+            if rows_affected > 0:
+                logger.info(f"✅ Incremented usage for user {user_id}")
+                return True
+            else:
+                logger.warning(f"⚠️ No active subscription found for user {user_id}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Failed to increment usage: {e}")
+            return False
+    
+    def get_usage_stats(self, user_id: str) -> dict:
+        """Get usage statistics for a user"""
+        try:
+            subscription = self.get_user_subscription(user_id)
+            if not subscription:
+                return {'used': 0, 'limit': 3, 'remaining': 3}  # Default free tier
+            
+            limit = subscription.plan.monthly_analysis_limit if subscription.plan else 3
+            used = subscription.monthly_analysis_used
+            remaining = max(0, limit - used) if limit > 0 else float('inf')
+            
+            return {
+                'used': used,
+                'limit': limit,
+                'remaining': remaining,
+                'unlimited': limit < 0
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get usage stats: {e}")
+            return {'used': 0, 'limit': 3, 'remaining': 3}
+    
     def can_user_analyze(self, user_id: str) -> Tuple[bool, Optional[str]]:
         """Check if user can perform analysis and return reason if not"""
         subscription = self.get_user_subscription(user_id)

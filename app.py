@@ -46,6 +46,82 @@ from io import BytesIO
 # Set up logging
 logger = logging.getLogger(__name__)
 
+
+# Enhanced Analysis System Integration
+try:
+    from analysis.enhanced_analysis_service import enhanced_analysis_service, create_analysis_result
+    from analysis.analysis_history_ui import show_analysis_history_page
+    ENHANCED_ANALYSIS_AVAILABLE = True
+    logger.info("✅ Enhanced Analysis System loaded successfully")
+except ImportError as e:
+    logger.warning(f"⚠️ Enhanced Analysis System not available: {e}")
+    ENHANCED_ANALYSIS_AVAILABLE = False
+
+def save_analysis_to_database(user_id, resume_filename, job_description, resume_content, analysis_result):
+    """Save analysis results to database using enhanced system"""
+    if not ENHANCED_ANALYSIS_AVAILABLE:
+        logger.warning("⚠️ Enhanced analysis system not available, skipping save")
+        return False
+    
+    try:
+        # Extract analysis data from result object
+        analysis_data = {
+            'analysis_type': 'resume_jd_match',
+            'match_score': float(analysis_result.score) if hasattr(analysis_result, 'score') else 0.0,
+            'strengths': analysis_result.strengths if hasattr(analysis_result, 'strengths') else [],
+            'weaknesses': analysis_result.weaknesses if hasattr(analysis_result, 'weaknesses') else [],
+            'recommendations': analysis_result.suggestions if hasattr(analysis_result, 'suggestions') else [],
+            'keywords_matched': analysis_result.matching_skills if hasattr(analysis_result, 'matching_skills') else [],
+            'keywords_missing': analysis_result.missing_skills if hasattr(analysis_result, 'missing_skills') else [],
+            'sections_analysis': {
+                'overall': {
+                    'score': float(analysis_result.score) if hasattr(analysis_result, 'score') else 0.0,
+                    'category': analysis_result.match_category if hasattr(analysis_result, 'match_category') else 'unknown'
+                }
+            },
+            'processing_time_seconds': 2.5,  # Default processing time
+            'api_cost_usd': 0.05,  # Default API cost
+            'tokens_used': 1000   # Default token usage
+        }
+        
+        # Create analysis result object
+        enhanced_result = create_analysis_result(
+            user_id=user_id,
+            resume_filename=resume_filename,
+            job_description=job_description,
+            resume_content=resume_content,
+            analysis_data=analysis_data
+        )
+        
+        # Save to database
+        success = enhanced_analysis_service.save_analysis(enhanced_result)
+        if success:
+            logger.info(f"✅ Analysis saved successfully: {enhanced_result.id}")
+        else:
+            logger.error("❌ Failed to save analysis")
+        
+        return success
+        
+    except Exception as e:
+        logger.error(f"❌ Error saving analysis: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def show_user_analysis_history(user_id):
+    """Show analysis history page"""
+    if not ENHANCED_ANALYSIS_AVAILABLE:
+        st.error("❌ Analysis history not available")
+        return
+    
+    try:
+        show_analysis_history_page(user_id)
+    except Exception as e:
+        st.error(f"❌ Error loading analysis history: {e}")
+        logger.error(f"Analysis history error: {e}")
+
+
+
 # Deployment fix timestamp: 2025-08-06 15:50 UTC
 
 def validate_user_session():
@@ -709,6 +785,33 @@ def cleanup_session_state():
     if 'bulk_results' in st.session_state and len(st.session_state.bulk_results) > 50:
         st.session_state.bulk_results = st.session_state.bulk_results[-25:]
 
+
+def get_user_usage_stats(user_id):
+    """Get current usage statistics for display"""
+    try:
+        from auth.services import subscription_service
+        return subscription_service.get_usage_stats(user_id)
+    except Exception as e:
+        logger.error(f"Failed to get usage stats: {e}")
+        return {'used': 0, 'limit': 3, 'remaining': 3}
+
+def display_usage_stats(user_id):
+    """Display current usage statistics"""
+    stats = get_user_usage_stats(user_id)
+    
+    if stats.get('unlimited', False):
+        st.sidebar.success("✨ Unlimited Analyses")
+    else:
+        used = stats.get('used', 0)
+        limit = stats.get('limit', 3)
+        remaining = stats.get('remaining', 3)
+        
+        if remaining > 0:
+            st.sidebar.info(f"📊 Analyses: {used}/{limit} used ({remaining} remaining)")
+        else:
+            st.sidebar.warning(f"⚠️ Analyses: {used}/{limit} used (Limit reached)")
+
+
 def main():
     """Main application function"""
     initialize_session_state()
@@ -1060,6 +1163,10 @@ def render_single_analysis_authenticated(user, subscription):
                 processing_time = time.time() - start_time
                 
                 if result:
+                    # Increment subscription usage count
+                    from auth.services import subscription_service
+                    subscription_service.increment_usage(user.id)
+                    
                     # Track usage with billing system
                     from billing.usage_tracker import usage_monitor
                     usage_monitor.track_analysis_session(
@@ -1089,7 +1196,7 @@ def render_single_analysis_authenticated(user, subscription):
                     st.session_state.analysis_results.append((resume_file.name, result))
                     
                     # Refresh usage display without full reload (usage already tracked by usage_monitor)
-                    refresh_usage_display(user.id)
+                    display_usage_stats(user.id)
                     
                     # Store result with enhanced history tracking
                     analysis_id = save_analysis_with_history(
@@ -1180,6 +1287,10 @@ def render_bulk_analysis_authenticated(user, subscription):
             
             processing_time = time.time() - start_time
             status_text.text("✅ Bulk analysis completed!")
+            
+            # Increment subscription usage count for bulk analysis
+            from auth.services import subscription_service
+            subscription_service.increment_usage(user.id)
             
             # Track usage with billing system (includes usage increment)
             from billing.usage_tracker import usage_monitor
@@ -1593,6 +1704,10 @@ def render_single_analysis():
                 result, error = analyze_single_resume(resume_file, jd_text)
                 
                 if result:
+                    # Increment subscription usage count
+                    from auth.services import subscription_service
+                    subscription_service.increment_usage(user.id)
+                    
                     # Track usage with billing system
                     from billing.usage_tracker import usage_monitor
                     usage_monitor.track_analysis_session(
@@ -1607,7 +1722,7 @@ def render_single_analysis():
                     render_analysis_result(result, resume_file.name)
                     
                     # Refresh usage display without full reload
-                    refresh_usage_display(user.id)
+                    display_usage_stats(user.id)
                     
                     # Store result with enhanced history tracking
                     analysis_id = save_analysis_with_history(
@@ -1741,6 +1856,10 @@ def render_bulk_analysis():
                 progress_bar.progress((i + 1) / len(resume_files))
             
             status_text.text("✅ Bulk analysis completed!")
+            
+            # Increment subscription usage count for bulk analysis
+            from auth.services import subscription_service
+            subscription_service.increment_usage(user.id)
             
             # Track usage with billing system (includes usage increment)
             from billing.usage_tracker import usage_monitor
