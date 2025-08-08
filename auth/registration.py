@@ -516,7 +516,7 @@ class RegistrationFlow:
         if st.button("💳 Pay with Razorpay", type="primary", use_container_width=True):
             try:
                 # Get user object
-                user = user_service.get_user_by_id(user_id)
+                user = user_service.get_user_by_id(user['id'])
                 if not user:
                     st.error("User not found. Please contact support.")
                     return
@@ -567,7 +567,7 @@ class RegistrationFlow:
                         
                         # Create subscription
                         subscription = subscription_service.create_subscription(
-                            user_id, 
+                            user['id'], 
                             selected_plan.id
                         )
                         
