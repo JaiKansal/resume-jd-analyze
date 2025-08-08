@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any, Tuple
 from datetime import datetime
 import logging
 
+from auth.postgresql_service import postgresql_auth_service
 from auth.services import user_service, subscription_service, session_service
 from auth.models import UserRole, PlanType
 
@@ -44,7 +45,7 @@ class RegistrationFlow:
             return False, "Please enter a valid email address"
         
         # Check if email already exists
-        existing_user = user_service.get_user_by_email(email)
+        existing_user = postgresql_auth_service.get_user_by_email(email)
         if existing_user:
             return False, "An account with this email already exists"
         
@@ -373,7 +374,7 @@ class RegistrationFlow:
             with st.spinner("Creating your account..."):
                 try:
                     # Create user account
-                    user = user_service.create_user(
+                    user = postgresql_auth_service.create_user(
                         email=data['email'],
                         password=data['password'],
                         first_name=data['first_name'],
@@ -867,7 +868,7 @@ def render_login_form():
         if login_submitted:
             if email and password:
                 with st.spinner("Signing you in..."):
-                    user = user_service.authenticate_user(email, password)
+                    user = postgresql_auth_service.authenticate_user(email, password)
                     
                     # Verify authentication was successful
                     if user:

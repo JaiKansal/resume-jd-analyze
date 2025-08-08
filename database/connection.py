@@ -139,9 +139,12 @@ class DatabaseManager:
     
     def _convert_query_params(self, query, params):
         """Convert query parameters based on database type"""
-        if self.config.db_type == 'postgresql':
+        # Always convert ? to %s if we detect PostgreSQL in DATABASE_URL
+        database_url = os.getenv('DATABASE_URL', '')
+        if 'postgresql' in database_url.lower() or 'postgres' in database_url.lower():
             # Convert ? to %s for PostgreSQL
             converted_query = query.replace('?', '%s')
+            logger.debug(f"Converted query: {query} -> {converted_query}")
             return converted_query, params
         else:
             # Keep ? for SQLite
