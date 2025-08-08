@@ -18,10 +18,21 @@ logger = logging.getLogger(__name__)
 def get_auth_service():
     """Get the appropriate auth service based on configuration"""
     try:
-        if postgresql_auth_service.is_postgresql:
+        # Check if DATABASE_URL is available and reinitialize if needed
+        import os
+        database_url = os.getenv('DATABASE_URL')
+        if database_url and 'postgresql' in database_url.lower():
+            # Reinitialize PostgreSQL service if DATABASE_URL was set after import
+            if not postgresql_auth_service.is_postgresql:
+                postgresql_auth_service.database_url = database_url
+                postgresql_auth_service.is_postgresql = True
+                logger.info("✅ PostgreSQL service reinitialized with DATABASE_URL")
+            
             return postgresql_auth_service
-    except:
-        pass
+    except Exception as e:
+        logger.warning(f"PostgreSQL service not available: {e}")
+    
+    logger.info("Using fallback SQLite user service")
     return user_service
 
 # Use the fallback service
