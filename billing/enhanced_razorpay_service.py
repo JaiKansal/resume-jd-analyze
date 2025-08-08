@@ -267,5 +267,3 @@ if enhanced_razorpay_service.status == 'sdk_missing' and FALLBACK_AVAILABLE:
 
 # Backward compatibility
 razorpay_service = enhanced_razorpay_service
-
-export default enhanced_razorpay_service
