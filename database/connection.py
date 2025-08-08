@@ -136,12 +136,26 @@ class DatabaseManager:
             logger.error(f"Failed to force initialize database: {e}")
             raise
     
+    
+    def _convert_query_params(self, query, params):
+        """Convert query parameters based on database type"""
+        if self.config.db_type == 'postgresql':
+            # Convert ? to %s for PostgreSQL
+            converted_query = query.replace('?', '%s')
+            return converted_query, params
+        else:
+            # Keep ? for SQLite
+            return query, params
+
     def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
         """Execute a SELECT query and return results"""
         try:
+            # Convert query parameters for database compatibility
+            converted_query, converted_params = self._convert_query_params(query, params or ())
+            
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(query, params or ())
+                cursor.execute(converted_query, converted_params)
                 
                 if self.config.db_type == 'postgresql' or self.config.database_url:
                     return [dict(row) for row in cursor.fetchall()]
@@ -165,9 +179,12 @@ class DatabaseManager:
     def execute_command(self, command: str, params: Optional[tuple] = None) -> int:
         """Execute an INSERT, UPDATE, or DELETE command"""
         try:
+            # Convert query parameters for database compatibility
+            converted_command, converted_params = self._convert_query_params(command, params or ())
+            
             with self.get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute(command, params or ())
+                cursor.execute(converted_command, converted_params)
                 conn.commit()
                 return cursor.rowcount
         except sqlite3.OperationalError as e:
