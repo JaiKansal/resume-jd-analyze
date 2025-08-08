@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 # Razorpay SDK with fallback
 try:
     import razorpay
+    print("Razorpay SDK import success")
     RAZORPAY_AVAILABLE = True
 except ImportError:
     RAZORPAY_AVAILABLE = False
