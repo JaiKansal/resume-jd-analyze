@@ -157,7 +157,19 @@ def validate_user_session():
 
 # Authentication imports
 from auth.registration import render_auth_page
-from auth.services import user_service, subscription_service, session_service, analytics_service
+try:
+    from auth.services import user_service, subscription_service, session_service, analytics_service
+    SERVICES_AVAILABLE = True
+    logger.info("✅ Auth services imported successfully")
+except ImportError as e:
+    logger.error(f"❌ Failed to import auth services: {e}")
+    SERVICES_AVAILABLE = False
+    # Create fallback objects
+    user_service = None
+    subscription_service = None
+    session_service = None
+    analytics_service = None
+
 from auth.models import UserRole, PlanType
 
 # Enhanced services imports with proper fallback
@@ -786,11 +798,23 @@ def cleanup_session_state():
         st.session_state.bulk_results = st.session_state.bulk_results[-25:]
 
 
+def get_subscription_service():
+    """Safely get subscription service with fallback"""
+    try:
+        from auth.services import subscription_service
+        return subscription_service
+    except Exception as e:
+        logger.error(f"Failed to import subscription service: {e}")
+        return None
+
 def get_user_usage_stats(user_id):
     """Get current usage statistics for display"""
     try:
-        from auth.services import subscription_service
-        return subscription_service.get_usage_stats(user_id)
+        service = get_subscription_service()
+        if service:
+            return service.get_usage_stats(user_id)
+        else:
+            return {'used': 0, 'limit': 3, 'remaining': 3}
     except Exception as e:
         logger.error(f"Failed to get usage stats: {e}")
         return {'used': 0, 'limit': 3, 'remaining': 3}
@@ -1073,7 +1097,15 @@ def render_single_analysis_authenticated(user, subscription):
     upgrade_ui.render_trial_status(user)
     
     # Check if user can analyze
-    can_analyze, reason = subscription_service.can_user_analyze(user.id)
+    try:
+        service = get_subscription_service()
+        if service:
+            can_analyze, reason = service.can_user_analyze(user.id)
+        else:
+            can_analyze, reason = True, None  # Default to allowing analysis
+    except Exception as e:
+        logger.error(f"Failed to check user analysis capability: {e}")
+        can_analyze, reason = True, None  # Default to allowing analysis
     
     if not can_analyze:
         st.error(f"❌ {reason}")
@@ -1164,8 +1196,12 @@ def render_single_analysis_authenticated(user, subscription):
                 
                 if result:
                     # Increment subscription usage count
-                    from auth.services import subscription_service
-                    subscription_service.increment_usage(user.id)
+                    try:
+                        service = get_subscription_service()
+                        if service:
+                            service.increment_usage(user.id)
+                    except Exception as e:
+                        logger.error(f"Failed to increment usage: {e}")
                     
                     # Track usage with billing system
                     from billing.usage_tracker import usage_monitor
@@ -1251,7 +1287,15 @@ def render_bulk_analysis_authenticated(user, subscription):
             st.info(f"📊 {len(resume_files)} resumes uploaded")
             
             # Check if user can analyze this many
-            can_analyze, reason = subscription_service.can_user_analyze(user.id)
+            try:
+                service = get_subscription_service()
+                if service:
+                    can_analyze, reason = service.can_user_analyze(user.id)
+                else:
+                    can_analyze, reason = True, None  # Default to allowing analysis
+            except Exception as e:
+                logger.error(f"Failed to check bulk analysis capability: {e}")
+                can_analyze, reason = True, None  # Default to allowing analysis
             if not can_analyze:
                 st.error(f"❌ {reason}")
                 return
@@ -1289,8 +1333,12 @@ def render_bulk_analysis_authenticated(user, subscription):
             status_text.text("✅ Bulk analysis completed!")
             
             # Increment subscription usage count for bulk analysis
-            from auth.services import subscription_service
-            subscription_service.increment_usage(user.id)
+            try:
+                        service = get_subscription_service()
+                        if service:
+                            service.increment_usage(user.id)
+                    except Exception as e:
+                        logger.error(f"Failed to increment usage: {e}")
             
             # Track usage with billing system (includes usage increment)
             from billing.usage_tracker import usage_monitor
@@ -1705,8 +1753,12 @@ def render_single_analysis():
                 
                 if result:
                     # Increment subscription usage count
-                    from auth.services import subscription_service
-                    subscription_service.increment_usage(user.id)
+                    try:
+                        service = get_subscription_service()
+                        if service:
+                            service.increment_usage(user.id)
+                    except Exception as e:
+                        logger.error(f"Failed to increment usage: {e}")
                     
                     # Track usage with billing system
                     from billing.usage_tracker import usage_monitor
@@ -1858,8 +1910,12 @@ def render_bulk_analysis():
             status_text.text("✅ Bulk analysis completed!")
             
             # Increment subscription usage count for bulk analysis
-            from auth.services import subscription_service
-            subscription_service.increment_usage(user.id)
+            try:
+                        service = get_subscription_service()
+                        if service:
+                            service.increment_usage(user.id)
+                    except Exception as e:
+                        logger.error(f"Failed to increment usage: {e}")
             
             # Track usage with billing system (includes usage increment)
             from billing.usage_tracker import usage_monitor
