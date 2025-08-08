@@ -77,11 +77,12 @@ class PostgreSQLAuthService:
             logger.error(f"Authentication error: {e}")
             return None
     
-    def create_user(self, email: str, password: str, first_name: str = "", last_name: str = ""):
+    def create_user(self, email: str, password: str, first_name: str = "", last_name: str = "", 
+                   company_name: str = "", role=None, phone: str = "", country: str = ""):
         """Create new user with PostgreSQL"""
         if not self.is_postgresql:
             logger.warning("PostgreSQL not configured, falling back to regular auth service")
-            return None, "PostgreSQL not configured"
+            return None
             
         try:
             with self.get_connection() as conn:
@@ -90,31 +91,59 @@ class PostgreSQLAuthService:
                 # Check if user exists
                 cursor.execute("SELECT id FROM users WHERE email = %s", (email.lower().strip(),))
                 if cursor.fetchone():
-                    return None, "User already exists"
+                    logger.warning(f"User already exists: {email}")
+                    return None
                 
                 # Create user
                 import uuid
                 user_id = str(uuid.uuid4())
                 password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 
+                # Handle role parameter
+                role_str = 'individual'
+                if role:
+                    if hasattr(role, 'value'):
+                        role_str = role.value
+                    else:
+                        role_str = str(role)
+                
                 cursor.execute("""
                     INSERT INTO users (
-                        id, email, password_hash, first_name, last_name,
-                        role, email_verified, login_count, is_active, created_at, updated_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        id, email, password_hash, first_name, last_name, company_name,
+                        role, phone, country, email_verified, login_count, is_active, 
+                        created_at, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    user_id, email.lower().strip(), password_hash, first_name, last_name,
-                    'individual', False, 0, True, datetime.utcnow(), datetime.utcnow()
+                    user_id, email.lower().strip(), password_hash, first_name, last_name, company_name,
+                    role_str, phone, country, False, 0, True, datetime.utcnow(), datetime.utcnow()
                 ))
                 
                 conn.commit()
+                logger.info(f"✅ User created successfully: {email}")
                 
                 # Return created user
-                return self.get_user_by_email(email), None
+                user_data = self.get_user_by_email(email)
+                if user_data:
+                    # Convert to User object-like structure
+                    class User:
+                        def __init__(self, data):
+                            self.id = data['id']
+                            self.email = data['email']
+                            self.first_name = data['first_name']
+                            self.last_name = data['last_name']
+                            self.company_name = data.get('company_name', '')
+                            self.role = data['role']
+                            self.phone = data.get('phone', '')
+                            self.country = data.get('country', '')
+                    
+                    return User(user_data)
+                return None
                 
         except Exception as e:
             logger.error(f"Failed to create user: {e}")
-            return None, str(e)
+            import traceback
+            traceback.print_exc()
+            return None
 
 # Global instance
 postgresql_auth_service = PostgreSQLAuthService()
