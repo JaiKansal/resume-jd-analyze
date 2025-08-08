@@ -8,7 +8,7 @@ A fully productized web interface for resume and job description matching
 import os
 import sys
 from pathlib import Path
-from billing.enhanced_razorpay_service import enhanced_razorpay_service
+from billing/enhanced_razorpay_service import enhanced_razorpay_service
 
 # Add project root to Python path
 project_root = Path(__file__).parent.absolute()
@@ -89,7 +89,7 @@ ENHANCED_SERVICES_AVAILABLE = False
 
 # Try to import enhanced analysis storage (this should always work)
 try:
-    from database.enhanced_analysis_storage import enhanced_analysis_storage
+    from database/enhanced_analysis_storage import enhanced_analysis_storage
     ANALYSIS_STORAGE_AVAILABLE = True
     logger.info("Enhanced analysis storage available")
 except ImportError:
