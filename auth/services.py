@@ -306,7 +306,7 @@ class SubscriptionService:
                 subscription.current_period_end, subscription.trial_start,
                 subscription.trial_end, subscription.monthly_analysis_used,
                 subscription.stripe_subscription_id, subscription.cancel_at_period_end,
-                subscription.canceled_at, datetime.utcnow(), subscription.id
+                subscription.cancelled_at, datetime.utcnow(), subscription.id
             )
             
             rows_affected = self.db.execute_command(query, params)
