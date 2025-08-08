@@ -139,16 +139,29 @@ class DatabaseManager:
     
     def _convert_query_params(self, query, params):
         """Convert query parameters based on database type"""
-        # Always convert ? to %s if we detect PostgreSQL in DATABASE_URL
-        database_url = os.getenv('DATABASE_URL', '')
-        if 'postgresql' in database_url.lower() or 'postgres' in database_url.lower():
-            # Convert ? to %s for PostgreSQL
-            converted_query = query.replace('?', '%s')
-            logger.debug(f"Converted query: {query} -> {converted_query}")
-            return converted_query, params
+        # Check the actual database type being used
+        if hasattr(self, 'config') and hasattr(self.config, 'db_type'):
+            if self.config.db_type == 'postgresql':
+                # Convert ? to %s for PostgreSQL
+                converted_query = query.replace('?', '%s')
+                logger.debug(f"PostgreSQL: Converted query: {query} -> {converted_query}")
+                return converted_query, params
+            else:
+                # Keep ? for SQLite
+                logger.debug(f"SQLite: Keeping query as-is: {query}")
+                return query, params
         else:
-            # Keep ? for SQLite
-            return query, params
+            # Fallback: check DATABASE_URL
+            database_url = os.getenv('DATABASE_URL', '')
+            if database_url and ('postgresql' in database_url.lower() or 'postgres' in database_url.lower()):
+                # Convert ? to %s for PostgreSQL
+                converted_query = query.replace('?', '%s')
+                logger.debug(f"PostgreSQL (fallback): Converted query: {query} -> {converted_query}")
+                return converted_query, params
+            else:
+                # Keep ? for SQLite
+                logger.debug(f"SQLite (fallback): Keeping query as-is: {query}")
+                return query, params
 
     def execute_query(self, query: str, params: Optional[tuple] = None) -> List[Dict[str, Any]]:
         """Execute a SELECT query and return results"""

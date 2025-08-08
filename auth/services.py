@@ -38,7 +38,7 @@ class UserService:
                     id, email, password_hash, first_name, last_name, company_name,
                     role, phone, country, timezone, email_verified, 
                     email_verification_token, is_active, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             
             params = (
@@ -63,7 +63,7 @@ class UserService:
     
     def get_user_by_id(self, user_id: str) -> Optional[User]:
         """Get user by ID"""
-        query = "SELECT * FROM users WHERE id = %s AND is_active = TRUE"
+        query = "SELECT * FROM users WHERE id = ? AND is_active = TRUE"
         result = self.db.get_single_result(query, (user_id,))
         
         if result:
@@ -73,7 +73,7 @@ class UserService:
     def get_user_by_email(self, email: str) -> Optional[User]:
         """Get user by email"""
         # Use simple query without is_active dependency
-        query = "SELECT * FROM users WHERE email = %s"
+        query = "SELECT * FROM users WHERE email = ?"
         result = self.db.get_single_result(query, (email.lower().strip(),))
         
         if result:
@@ -97,12 +97,12 @@ class UserService:
         try:
             query = """
                 UPDATE users SET
-                    first_name = %s, last_name = %s, company_name = %s, role = %s,
-                    phone = %s, country = %s, timezone = %s, email_verified = %s,
-                    email_verification_token = %s, password_reset_token = %s,
-                    password_reset_expires = %s, last_login = %s, login_count = %s,
-                    is_active = %s, updated_at = %s
-                WHERE id = %s
+                    first_name = ?, last_name = ?, company_name = ?, role = ?,
+                    phone = ?, country = ?, timezone = ?, email_verified = ?,
+                    email_verification_token = ?, password_reset_token = ?,
+                    password_reset_expires = ?, last_login = ?, login_count = ?,
+                    is_active = ?, updated_at = ?
+                WHERE id = ?
             """
             
             params = (
@@ -122,7 +122,7 @@ class UserService:
     
     def verify_email(self, token: str) -> bool:
         """Verify user email with token"""
-        query = "SELECT * FROM users WHERE email_verification_token = %s"
+        query = "SELECT * FROM users WHERE email_verification_token = ?"
         result = self.db.get_single_result(query, (token,))
         
         if result:
@@ -145,7 +145,7 @@ class UserService:
     
     def reset_password(self, token: str, new_password: str) -> bool:
         """Reset password using token"""
-        query = "SELECT * FROM users WHERE password_reset_token = %s"
+        query = "SELECT * FROM users WHERE password_reset_token = ?"
         result = self.db.get_single_result(query, (token,))
         
         if result:
@@ -157,7 +157,7 @@ class UserService:
     
     def deactivate_user(self, user_id: str) -> bool:
         """Deactivate user account"""
-        query = "UPDATE users SET is_active = FALSE, updated_at = %s WHERE id = %s"
+        query = "UPDATE users SET is_active = FALSE, updated_at = ? WHERE id = ?"
         rows_affected = self.db.execute_command(query, (datetime.utcnow(), user_id))
         return rows_affected > 0
     
@@ -204,7 +204,7 @@ class SubscriptionService:
     
     def get_plan_by_type(self, plan_type: PlanType) -> Optional[SubscriptionPlan]:
         """Get subscription plan by type"""
-        query = "SELECT * FROM subscription_plans WHERE plan_type = %s AND is_active = TRUE"
+        query = "SELECT * FROM subscription_plans WHERE plan_type = ? AND is_active = TRUE"
         result = self.db.get_single_result(query, (plan_type.value,))
         
         if result:
@@ -239,7 +239,7 @@ class SubscriptionService:
                 INSERT INTO subscriptions (
                     id, user_id, plan_id, status, current_period_start,
                     current_period_end, stripe_customer_id, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             
             params = (
@@ -263,7 +263,7 @@ class SubscriptionService:
                    sp.monthly_analysis_limit, sp.features, sp.is_active, sp.created_at as plan_created_at
             FROM subscriptions s
             JOIN subscription_plans sp ON s.plan_id = sp.id
-            WHERE s.user_id = %s AND s.status IN ('active', 'trialing')
+            WHERE s.user_id = ? AND s.status IN ('active', 'trialing')
             ORDER BY s.created_at DESC
             LIMIT 1
         """
@@ -294,11 +294,11 @@ class SubscriptionService:
         try:
             query = """
                 UPDATE subscriptions SET
-                    status = %s, current_period_start = %s, current_period_end = %s,
-                    trial_start = %s, trial_end = %s, monthly_analysis_used = %s,
-                    stripe_subscription_id = %s, cancel_at_period_end = %s,
-                    cancelled_at = %s, updated_at = %s
-                WHERE id = %s
+                    status = ?, current_period_start = ?, current_period_end = ?,
+                    trial_start = ?, trial_end = ?, monthly_analysis_used = ?,
+                    stripe_subscription_id = ?, cancel_at_period_end = ?,
+                    cancelled_at = ?, updated_at = ?
+                WHERE id = ?
             """
             
             params = (
@@ -348,7 +348,7 @@ class SubscriptionService:
                    sp.monthly_analysis_limit, sp.features, sp.is_active, sp.created_at as plan_created_at
             FROM subscriptions s
             JOIN subscription_plans sp ON s.plan_id = sp.id
-            WHERE s.id = %s
+            WHERE s.id = ?
         """
         
         result = self.db.get_single_result(query, (subscription_id,))
@@ -374,7 +374,7 @@ class SubscriptionService:
     
     def get_plan_by_id(self, plan_id: str) -> Optional[SubscriptionPlan]:
         """Get subscription plan by ID"""
-        query = "SELECT * FROM subscription_plans WHERE id = %s AND is_active = TRUE"
+        query = "SELECT * FROM subscription_plans WHERE id = ? AND is_active = TRUE"
         result = self.db.get_single_result(query, (plan_id,))
         
         if result:
@@ -456,7 +456,7 @@ class SessionService:
             INSERT INTO user_sessions (
                 id, user_id, session_token, ip_address, user_agent,
                 expires_at, is_active, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
         
         params = (
@@ -470,7 +470,7 @@ class SessionService:
     
     def get_session(self, session_token: str) -> Optional[UserSession]:
         """Get session by token"""
-        query = "SELECT * FROM user_sessions WHERE session_token = %s AND is_active = TRUE"
+        query = "SELECT * FROM user_sessions WHERE session_token = ? AND is_active = TRUE"
         result = self.db.get_single_result(query, (session_token,))
         
         if result:
@@ -486,25 +486,25 @@ class SessionService:
     def extend_session(self, session_token: str, hours: int = 24) -> bool:
         """Extend session expiration"""
         new_expires = datetime.utcnow() + timedelta(hours=hours)
-        query = "UPDATE user_sessions SET expires_at = %s WHERE session_token = %s"
+        query = "UPDATE user_sessions SET expires_at = ? WHERE session_token = ?"
         rows_affected = self.db.execute_command(query, (new_expires, session_token))
         return rows_affected > 0
     
     def deactivate_session(self, session_token: str) -> bool:
         """Deactivate session"""
-        query = "UPDATE user_sessions SET is_active = FALSE WHERE session_token = %s"
+        query = "UPDATE user_sessions SET is_active = FALSE WHERE session_token = ?"
         rows_affected = self.db.execute_command(query, (session_token,))
         return rows_affected > 0
     
     def deactivate_user_sessions(self, user_id: str) -> bool:
         """Deactivate all sessions for user"""
-        query = "UPDATE user_sessions SET is_active = FALSE WHERE user_id = %s"
+        query = "UPDATE user_sessions SET is_active = FALSE WHERE user_id = ?"
         rows_affected = self.db.execute_command(query, (user_id,))
         return rows_affected > 0
     
     def cleanup_expired_sessions(self) -> int:
         """Clean up expired sessions"""
-        query = "UPDATE user_sessions SET is_active = FALSE WHERE expires_at < %s"
+        query = "UPDATE user_sessions SET is_active = FALSE WHERE expires_at < ?"
         rows_affected = self.db.execute_command(query, (datetime.utcnow(),))
         return rows_affected
     
@@ -546,7 +546,7 @@ class AnalyticsService:
                     id, user_id, team_id, session_type, resume_count,
                     job_description_count, processing_time_seconds, api_cost_usd,
                     tokens_used, status, error_message, metadata, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             
             params = (
@@ -576,7 +576,7 @@ class AnalyticsService:
                 SUM(api_cost_usd) as total_cost,
                 SUM(tokens_used) as total_tokens
             FROM analysis_sessions
-            WHERE user_id = %s AND created_at >= %s AND status = 'completed'
+            WHERE user_id = ? AND created_at >= ? AND status = 'completed'
         """
         
         result = self.db.get_single_result(query, (user_id, since_date))
