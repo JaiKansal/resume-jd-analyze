@@ -70,41 +70,6 @@ def fix_postgresql_schema():
             );
             """,
             
-            # Fix user_engagement table
-            """
-            CREATE TABLE IF NOT EXISTS user_engagement (
-                id TEXT PRIMARY KEY,
-                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-                date DATE NOT NULL,
-                sessions_count INTEGER DEFAULT 0,
-                analyses_performed INTEGER DEFAULT 0,
-                features_used TEXT,
-                time_spent_minutes INTEGER DEFAULT 0,
-                pages_visited INTEGER DEFAULT 0,
-                created_at TIMESTAMPTZ DEFAULT NOW(),
-                UNIQUE(user_id, date)
-            );
-            """,
-            
-            # Fix analysis_sessions table
-            """
-            CREATE TABLE IF NOT EXISTS analysis_sessions (
-                id TEXT PRIMARY KEY,
-                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-                team_id TEXT,
-                session_type VARCHAR(50) CHECK (session_type IN ('single', 'bulk', 'job_matching', 'api')) DEFAULT 'single',
-                resume_count INTEGER DEFAULT 1,
-                job_description_count INTEGER DEFAULT 1,
-                processing_time_seconds REAL,
-                api_cost_usd REAL,
-                tokens_used INTEGER,
-                status VARCHAR(20) CHECK (status IN ('completed', 'failed', 'processing')) DEFAULT 'completed',
-                error_message TEXT,
-                metadata TEXT,
-                created_at TIMESTAMPTZ DEFAULT NOW()
-            );
-            """,
-            
             # Fix subscription_plans table
             """
             CREATE TABLE IF NOT EXISTS subscription_plans (
@@ -138,6 +103,55 @@ def fix_postgresql_schema():
                 cancelled_at TIMESTAMPTZ,
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            """,
+            
+            # Fix user_sessions table (MISSING!)
+            """
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+                session_token VARCHAR(255) UNIQUE NOT NULL,
+                ip_address TEXT,
+                user_agent TEXT,
+                expires_at TIMESTAMPTZ NOT NULL,
+                is_active BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMPTZ DEFAULT NOW()
+            );
+            """,
+            
+            # Fix user_engagement table
+            """
+            CREATE TABLE IF NOT EXISTS user_engagement (
+                id TEXT PRIMARY KEY,
+                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+                date DATE NOT NULL,
+                sessions_count INTEGER DEFAULT 0,
+                analyses_performed INTEGER DEFAULT 0,
+                features_used TEXT,
+                time_spent_minutes INTEGER DEFAULT 0,
+                pages_visited INTEGER DEFAULT 0,
+                created_at TIMESTAMPTZ DEFAULT NOW(),
+                UNIQUE(user_id, date)
+            );
+            """,
+            
+            # Fix analysis_sessions table
+            """
+            CREATE TABLE IF NOT EXISTS analysis_sessions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+                team_id TEXT,
+                session_type VARCHAR(50) CHECK (session_type IN ('single', 'bulk', 'job_matching', 'api')) DEFAULT 'single',
+                resume_count INTEGER DEFAULT 1,
+                job_description_count INTEGER DEFAULT 1,
+                processing_time_seconds REAL,
+                api_cost_usd REAL,
+                tokens_used INTEGER,
+                status VARCHAR(20) CHECK (status IN ('completed', 'failed', 'processing')) DEFAULT 'completed',
+                error_message TEXT,
+                metadata TEXT,
+                created_at TIMESTAMPTZ DEFAULT NOW()
             );
             """
         ]
