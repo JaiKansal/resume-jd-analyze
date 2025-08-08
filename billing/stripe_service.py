@@ -46,13 +46,23 @@ stripe_service = StripeServiceFallback()
 # Also create a stripe module fallback for imports
 class StripeFallback:
     """Fallback for stripe module imports"""
-    
+
     def __init__(self):
         logger.warning("Stripe module fallback active - you should use Razorpay instead")
+        self._special_attrs = {
+            "__file__": "<stripe-fallback>",
+            "__path__": [],
+            "__name__": "stripe",
+            "__package__": "stripe"
+        }
     
     def __getattr__(self, name):
+        if name in self._special_attrs:
+            return self._special_attrs[name]
+        
         logger.warning(f"Stripe.{name} called - consider using Razorpay equivalent")
         return lambda *args, **kwargs: {"error": "Use Razorpay instead of Stripe"}
+
 
 # Make stripe module available
 import sys
