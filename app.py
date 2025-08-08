@@ -18,7 +18,18 @@ if str(project_root) not in sys.path:
 os.environ.setdefault('PYTHONPATH', str(project_root))
 
 import streamlit as st
+
+# Streamlit Cloud environment fix - inline to avoid import issues
 import os
+if not os.getenv('DATABASE_URL'):
+    try:
+        database_url = st.secrets.get('DATABASE_URL')
+        if database_url:
+            os.environ['DATABASE_URL'] = database_url
+            print("✅ DATABASE_URL loaded from Streamlit secrets")
+    except Exception as e:
+        print(f"⚠️ Could not load DATABASE_URL from secrets: {e}")
+
 import tempfile
 import zipfile
 import pandas as pd
