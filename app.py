@@ -991,7 +991,7 @@ def render_single_analysis_authenticated(user, subscription):
         resume_file = st.file_uploader(
             "Choose a PDF resume file",
             type=['pdf'],
-            help=f"Upload a PDF resume for analysis (max {file_size_limit}MB, max_upload_size=10)"
+            help=f"Upload a PDF resume for analysis (max {file_size_limit}MB)"
         )
         
         # Check file size if file is uploaded
@@ -1024,8 +1024,7 @@ def render_single_analysis_authenticated(user, subscription):
             jd_file = st.file_uploader(
                 "Choose a text file",
                 type=['txt'],
-                help="Upload a .txt file containing the job description"
-            , max_upload_size=10)
+                help="Upload a .txt file containing the job description")
             jd_text = ""
             if jd_file:
                 jd_text = jd_file.read().decode('utf-8')
@@ -1138,7 +1137,7 @@ def render_bulk_analysis_authenticated(user, subscription):
             type=['pdf'],
             accept_multiple_files=True,
             help="Upload multiple PDF resumes for batch analysis"
-        , max_upload_size=10)
+        )
         
         if resume_files:
             st.info(f"📊 {len(resume_files)} resumes uploaded")
@@ -1541,8 +1540,7 @@ def render_single_analysis():
         resume_file = st.file_uploader(
             "Choose a PDF resume file",
             type=['pdf'],
-            help="Upload a PDF resume for analysis"
-        , max_upload_size=10)
+            help="Upload a PDF resume for analysis")
     
     with col2:
         st.subheader("📋 Job Description")
@@ -1562,7 +1560,7 @@ def render_single_analysis():
                 "Choose a text file",
                 type=['txt'],
                 help="Upload a .txt file containing the job description"
-            , max_upload_size=10)
+            )
             jd_text = ""
             if jd_file:
                 jd_text = jd_file.read().decode('utf-8')
@@ -1707,7 +1705,7 @@ def render_bulk_analysis():
             type=['pdf'],
             accept_multiple_files=True,
             help="Upload multiple PDF resumes for batch analysis"
-        , max_upload_size=10)
+        )
         
         if resume_files:
             st.info(f"📊 {len(resume_files)} resumes uploaded")
@@ -2625,7 +2623,7 @@ def render_job_matching():
             "Choose your PDF resume file",
             type=['pdf'],
             help="Upload your resume to analyze against multiple job opportunities"
-        , max_upload_size=10)
+        )
         
         if resume_file:
             st.success(f"✅ Resume uploaded: {resume_file.name}")
@@ -2680,7 +2678,7 @@ def render_job_matching():
                 type=['txt'],
                 accept_multiple_files=True,
                 help="Upload multiple .txt files, each containing a job description"
-            , max_upload_size=10)
+            )
             
             if job_files:
                 for job_file in job_files:
