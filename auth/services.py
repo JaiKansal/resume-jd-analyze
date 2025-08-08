@@ -297,7 +297,7 @@ class SubscriptionService:
                     status = ?, current_period_start = ?, current_period_end = ?,
                     trial_start = ?, trial_end = ?, monthly_analysis_used = ?,
                     stripe_subscription_id = ?, cancel_at_period_end = ?,
-                    cancelled_at = ?, updated_at = ?
+                    canceled_at = ?, updated_at = ?
                 WHERE id = ?
             """
             
@@ -306,7 +306,7 @@ class SubscriptionService:
                 subscription.current_period_end, subscription.trial_start,
                 subscription.trial_end, subscription.monthly_analysis_used,
                 subscription.stripe_subscription_id, subscription.cancel_at_period_end,
-                subscription.cancelled_at, datetime.utcnow(), subscription.id
+                subscription.canceled_at, datetime.utcnow(), subscription.id
             )
             
             rows_affected = self.db.execute_command(query, params)
@@ -436,7 +436,7 @@ class SubscriptionService:
             stripe_customer_id=row['stripe_customer_id'],
             stripe_subscription_id=row['stripe_subscription_id'],
             cancel_at_period_end=row['cancel_at_period_end'],
-            cancelled_at=row['cancelled_at',None],
+            canceled_at=row['canceled_at'],
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )
