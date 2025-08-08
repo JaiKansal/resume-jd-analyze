@@ -587,20 +587,22 @@ class AnalyticsService:
     def track_analysis_session(self, session: AnalysisSession) -> bool:
         """Track analysis session for billing and analytics"""
         try:
+            # Use only columns that exist in our enhanced schema
             query = """
                 INSERT INTO analysis_sessions (
-                    id, user_id, team_id, session_type, resume_count,
-                    job_description_count, processing_time_seconds, api_cost_usd,
-                    tokens_used, status, error_message, metadata, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    id, user_id, team_id, processing_time_seconds, api_cost_usd,
+                    tokens_used, status, error_message, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             params = (
-                session.id, session.user_id, session.team_id, session.session_type,
-                session.resume_count, session.job_description_count,
-                session.processing_time_seconds, session.api_cost_usd,
-                session.tokens_used, session.status, session.error_message,
-                session.metadata, session.created_at
+                session.id, session.user_id, getattr(session, 'team_id', None),
+                getattr(session, 'processing_time_seconds', 0),
+                getattr(session, 'api_cost_usd', 0),
+                getattr(session, 'tokens_used', 0),
+                getattr(session, 'status', 'completed'),
+                getattr(session, 'error_message', None),
+                getattr(session, 'created_at', datetime.utcnow())
             )
             
             self.db.execute_command(query, params)
@@ -617,12 +619,12 @@ class AnalyticsService:
         query = """
             SELECT 
                 COUNT(*) as total_sessions,
-                SUM(resume_count) as total_resumes,
+                COUNT(*) as total_resumes,
                 AVG(processing_time_seconds) as avg_processing_time,
-                SUM(api_cost_usd) as total_cost,
-                SUM(tokens_used) as total_tokens
+                COALESCE(SUM(api_cost_usd), 0) as total_cost,
+                COALESCE(SUM(tokens_used), 0) as total_tokens
             FROM analysis_sessions
-            WHERE user_id = ? AND created_at >= ? AND status = 'completed'
+            WHERE user_id = %s AND created_at >= %s AND (status = 'completed' OR status IS NULL)
         """
         
         result = self.db.get_single_result(query, (user_id, since_date))
