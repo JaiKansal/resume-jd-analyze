@@ -436,7 +436,7 @@ class SubscriptionService:
             stripe_customer_id=row['stripe_customer_id'],
             stripe_subscription_id=row['stripe_subscription_id'],
             cancel_at_period_end=row['cancel_at_period_end'],
-            canceled_at=row['canceled_at'],
+            cancelled_at=row['canceled_at'],
             created_at=row['created_at'],
             updated_at=row['updated_at']
         )
