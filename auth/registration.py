@@ -15,6 +15,18 @@ from auth.models import UserRole, PlanType
 
 logger = logging.getLogger(__name__)
 
+def get_auth_service():
+    """Get the appropriate auth service based on configuration"""
+    try:
+        if postgresql_auth_service.is_postgresql:
+            return postgresql_auth_service
+    except:
+        pass
+    return user_service
+
+# Use the fallback service
+auth_service = get_auth_service()
+
 class RegistrationFlow:
     """Handles the multi-step registration and onboarding process"""
     
@@ -45,7 +57,7 @@ class RegistrationFlow:
             return False, "Please enter a valid email address"
         
         # Check if email already exists
-        existing_user = postgresql_auth_service.get_user_by_email(email)
+        existing_user = auth_service.get_user_by_email(email)
         if existing_user:
             return False, "An account with this email already exists"
         
@@ -374,7 +386,7 @@ class RegistrationFlow:
             with st.spinner("Creating your account..."):
                 try:
                     # Create user account
-                    user = postgresql_auth_service.create_user(
+                    user = auth_service.create_user(
                         email=data['email'],
                         password=data['password'],
                         first_name=data['first_name'],
@@ -868,7 +880,7 @@ def render_login_form():
         if login_submitted:
             if email and password:
                 with st.spinner("Signing you in..."):
-                    user = postgresql_auth_service.authenticate_user(email, password)
+                    user = auth_service.authenticate_user(email, password)
                     
                     # Verify authentication was successful
                     if user:

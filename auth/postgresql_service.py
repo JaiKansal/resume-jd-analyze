@@ -16,8 +16,12 @@ class PostgreSQLAuthService:
     
     def __init__(self):
         self.database_url = os.getenv('DATABASE_URL')
-        if not self.database_url or 'postgresql' not in self.database_url:
-            raise Exception("PostgreSQL DATABASE_URL required")
+        self.is_postgresql = self.database_url and 'postgresql' in self.database_url.lower()
+        
+        if not self.is_postgresql:
+            # Fallback to SQLite mode - don't raise exception
+            logger.warning("PostgreSQL DATABASE_URL not configured, service will be disabled")
+            self.database_url = None
     
     def get_connection(self):
         """Get PostgreSQL connection"""
@@ -27,6 +31,10 @@ class PostgreSQLAuthService:
     
     def get_user_by_email(self, email: str):
         """Get user by email using PostgreSQL syntax"""
+        if not self.is_postgresql:
+            logger.warning("PostgreSQL not configured, falling back to regular auth service")
+            return None
+            
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
@@ -46,6 +54,10 @@ class PostgreSQLAuthService:
     
     def authenticate_user(self, email: str, password: str):
         """Authenticate user with PostgreSQL"""
+        if not self.is_postgresql:
+            logger.warning("PostgreSQL not configured, falling back to regular auth service")
+            return None
+            
         user = self.get_user_by_email(email)
         
         if not user:
@@ -67,6 +79,10 @@ class PostgreSQLAuthService:
     
     def create_user(self, email: str, password: str, first_name: str = "", last_name: str = ""):
         """Create new user with PostgreSQL"""
+        if not self.is_postgresql:
+            logger.warning("PostgreSQL not configured, falling back to regular auth service")
+            return None, "PostgreSQL not configured"
+            
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()

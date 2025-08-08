@@ -232,10 +232,19 @@ def update_auth_registration_to_use_postgresql():
                 # Add the PostgreSQL import
                 content = content[:import_pos] + 'from auth.postgresql_service import postgresql_auth_service\n' + content[import_pos:]
         
-        # Replace user_service calls with postgresql_auth_service
-        content = content.replace('user_service.authenticate_user', 'postgresql_auth_service.authenticate_user')
-        content = content.replace('user_service.get_user_by_email', 'postgresql_auth_service.get_user_by_email')
-        content = content.replace('user_service.create_user', 'postgresql_auth_service.create_user')
+        # Replace user_service calls with hybrid approach
+        content = content.replace(
+            'user_service.authenticate_user', 
+            '(postgresql_auth_service.authenticate_user if postgresql_auth_service.is_postgresql else user_service.authenticate_user)'
+        )
+        content = content.replace(
+            'user_service.get_user_by_email', 
+            '(postgresql_auth_service.get_user_by_email if postgresql_auth_service.is_postgresql else user_service.get_user_by_email)'
+        )
+        content = content.replace(
+            'user_service.create_user', 
+            '(postgresql_auth_service.create_user if postgresql_auth_service.is_postgresql else user_service.create_user)'
+        )
         
         with open('auth/registration.py', 'w') as f:
             f.write(content)
