@@ -108,7 +108,7 @@ class EnhancedRazorpayService:
             logger.error(f"❌ Error accessing Streamlit secrets: {e}")
     
 
-        def _get_api_key_id(self) -> Optional[str]:
+    def _get_api_key_id(self) -> Optional[str]:
         """Get API key ID from multiple sources"""
         # Try environment variables first
         key_id = os.getenv('RAZORPAY_KEY_ID')
