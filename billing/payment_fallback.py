@@ -95,6 +95,9 @@ payment_fallback_service = PaymentFallbackService()
 def get_payment_service():
     """Get the appropriate payment service (with fallback)"""
     try:
+        # Try to import razorpay SDK first
+        import razorpay
+        
         # Try production-ready service first
         from billing.production_razorpay_service import production_razorpay_service
         
@@ -111,6 +114,14 @@ def get_payment_service():
             status_info = production_razorpay_service.get_status_info()
             logger.warning(f"Razorpay not available (status: {production_razorpay_service.status})")
             logger.warning(f"Status info: {status_info}")
+            return payment_fallback_service
+            
+    except ImportError:
+        logger.warning("Razorpay SDK not available, using simple fallback service")
+        try:
+            from billing.simple_payment_service import simple_payment_service
+            return simple_payment_service
+        except Exception:
             return payment_fallback_service
             
     except Exception as e:

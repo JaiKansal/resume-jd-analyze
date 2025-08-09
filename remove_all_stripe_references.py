@@ -1,4 +1,19 @@
+#!/usr/bin/env python3
 """
+Remove all Stripe references and clean up payment system
+"""
+
+import os
+import glob
+
+def clean_payment_gateway():
+    """Clean up payment gateway to remove all Stripe references"""
+    
+    with open('billing/payment_gateway.py', 'r') as f:
+        content = f.read()
+    
+    # Create a clean payment gateway with only Razorpay
+    clean_content = '''"""
 Payment Gateway Manager - Razorpay Only
 Handles Razorpay payment processing for Indian market
 """
@@ -116,3 +131,135 @@ class PaymentGatewayManager:
 
 # Global instance
 payment_gateway_manager = PaymentGatewayManager()
+'''
+    
+    with open('billing/payment_gateway.py', 'w') as f:
+        f.write(clean_content)
+    
+    print("✅ Cleaned payment gateway manager")
+
+def remove_stripe_files():
+    """Remove Stripe-specific files"""
+    
+    stripe_files = [
+        'billing/stripe_service.py',
+        'test_stripe_integration.py',
+        'billing/webhook_handler.py'
+    ]
+    
+    for file_path in stripe_files:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"✅ Removed {file_path}")
+        else:
+            print(f"⚠️ {file_path} not found")
+
+def clean_upgrade_flow():
+    """Clean upgrade flow to remove Stripe references"""
+    
+    if not os.path.exists('billing/upgrade_flow.py'):
+        print("⚠️ upgrade_flow.py not found")
+        return
+    
+    with open('billing/upgrade_flow.py', 'r') as f:
+        content = f.read()
+    
+    # Remove Stripe imports and references
+    content = content.replace("from billing.stripe_service import stripe_service", "# Stripe removed - using Razorpay only")
+    content = content.replace("STRIPE_AVAILABLE = True", "STRIPE_AVAILABLE = False")
+    content = content.replace("stripe_service", "razorpay_service")
+    
+    with open('billing/upgrade_flow.py', 'w') as f:
+        f.write(content)
+    
+    print("✅ Cleaned upgrade flow")
+
+def update_app_imports():
+    """Update app.py to remove any Stripe imports"""
+    
+    with open('app.py', 'r') as f:
+        content = f.read()
+    
+    # Remove any Stripe imports
+    lines = content.split('\n')
+    clean_lines = []
+    
+    for line in lines:
+        if 'stripe' not in line.lower() or 'streamlit' in line.lower():
+            clean_lines.append(line)
+        else:
+            clean_lines.append(f"# Removed Stripe reference: {line}")
+    
+    with open('app.py', 'w') as f:
+        f.write('\n'.join(clean_lines))
+    
+    print("✅ Cleaned app.py imports")
+
+def create_simple_payment_service():
+    """Create a simple payment service that uses only the fallback"""
+    
+    simple_service = '''"""
+Simple Payment Service - Fallback Only
+For when Razorpay SDK is not available
+"""
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SimplePaymentService:
+    """Simple payment service that always uses fallback"""
+    
+    def __init__(self):
+        self.status = "fallback_mode"
+        self.client = None
+    
+    def create_payment_link(self, *args, **kwargs):
+        """Always return fallback response"""
+        return {
+            'ok': False,
+            'code': 'sdk_unavailable',
+            'message': 'Razorpay SDK not available - using free tier only'
+        }
+    
+    def create_customer(self, *args, **kwargs):
+        """Always return fallback response"""
+        return {
+            'ok': False,
+            'code': 'sdk_unavailable',
+            'message': 'Payment system not available'
+        }
+    
+    def handle_webhook(self, *args, **kwargs):
+        """Always return fallback response"""
+        return {
+            'status': 'error',
+            'message': 'Payment system not available'
+        }
+
+# Global instance
+simple_payment_service = SimplePaymentService()
+'''
+    
+    with open('billing/simple_payment_service.py', 'w') as f:
+        f.write(simple_service)
+    
+    print("✅ Created simple payment service")
+
+if __name__ == "__main__":
+    print("🚀 Removing all Stripe references and cleaning payment system...")
+    
+    clean_payment_gateway()
+    remove_stripe_files()
+    clean_upgrade_flow()
+    update_app_imports()
+    create_simple_payment_service()
+    
+    print("\n🎉 All Stripe references removed!")
+    print("\n📋 What was cleaned:")
+    print("1. ✅ Payment gateway manager - Razorpay only")
+    print("2. ✅ Removed Stripe service files")
+    print("3. ✅ Cleaned upgrade flow")
+    print("4. ✅ Updated app imports")
+    print("5. ✅ Created simple fallback service")
+    print("\n🚀 Payment system is now Stripe-free!")

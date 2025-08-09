@@ -24,8 +24,8 @@ except ImportError:
 
 # Import Stripe service only when needed
 try:
-    from billing.stripe_service import stripe_service
-    STRIPE_AVAILABLE = True
+    # Stripe removed - using Razorpay only
+    STRIPE_AVAILABLE = False
 except ImportError:
     STRIPE_AVAILABLE = False
 
