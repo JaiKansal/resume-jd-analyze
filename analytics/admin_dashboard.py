@@ -113,7 +113,7 @@ class AdminDashboardService:
                 SUM(sp.price_annual / 12) as annualized_monthly_revenue
             FROM subscriptions s
             JOIN subscription_plans sp ON s.plan_id = sp.id
-            WHERE s.status = 'active' AND s.created_at >= ?
+            WHERE s.status = 'active' AND s.created_at >= %s
             GROUP BY sp.plan_type, sp.name
             ORDER BY monthly_revenue DESC
         """
@@ -149,7 +149,7 @@ class AdminDashboardService:
                 DATE(created_at) as signup_date,
                 COUNT(*) as new_users
             FROM users 
-            WHERE created_at >= ? AND is_active = TRUE
+            WHERE created_at >= %s AND is_active = TRUE
             GROUP BY DATE(created_at)
             ORDER BY signup_date
         """
@@ -162,7 +162,7 @@ class AdminDashboardService:
                 DATE(cancelled_at) as churn_date,
                 COUNT(*) as churned_users
             FROM subscriptions 
-            WHERE cancelled_at >= ? AND cancelled_at IS NOT NULL
+            WHERE cancelled_at >= %s AND cancelled_at IS NOT NULL
             GROUP BY DATE(cancelled_at)
             ORDER BY churn_date
         """
@@ -199,9 +199,9 @@ class AdminDashboardService:
                 COUNT(*) as session_count,
                 COUNT(DISTINCT user_id) as unique_users,
                 AVG(processing_time_seconds) as avg_processing_time,
-                SUM(resume_count) as total_resumes
+                COUNT(*) as total_resumes
             FROM analysis_sessions 
-            WHERE created_at >= ? AND status = 'completed'
+            WHERE created_at >= %s AND status = 'completed'
             GROUP BY session_type
             ORDER BY session_count DESC
         """
@@ -216,7 +216,7 @@ class AdminDashboardService:
                 COUNT(DISTINCT user_id) as unique_users
             FROM analytics_events 
             WHERE event_name = 'feature_used' 
-            AND timestamp >= ?
+            AND timestamp >= %s
             GROUP BY JSON_EXTRACT(parameters, '$.feature_name')
             ORDER BY usage_count DESC
         """
@@ -263,7 +263,7 @@ class AdminDashboardService:
                 COUNT(*) as total_sessions,
                 AVG(processing_time_seconds) as avg_processing_time
             FROM analysis_sessions 
-            WHERE created_at >= ?
+            WHERE created_at >= %s
         """
         
         result = self.db.get_single_result(user_activity_query, (since_date,))
@@ -319,7 +319,7 @@ class AdminDashboardService:
             SELECT SUM(sp.price_monthly) as prev_mrr
             FROM subscriptions s
             JOIN subscription_plans sp ON s.plan_id = sp.id
-            WHERE s.status = 'active' AND s.created_at <= ?
+            WHERE s.status = 'active' AND s.created_at <= %s
         """
         
         prev_mrr_result = self.db.get_single_result(prev_mrr_query, (previous_period,))
@@ -348,7 +348,7 @@ class AdminDashboardService:
         active_users_query = """
             SELECT COUNT(DISTINCT user_id) as active
             FROM analysis_sessions 
-            WHERE created_at >= ?
+            WHERE created_at >= %s
         """
         active_result = self.db.get_single_result(active_users_query, (since_date,))
         active_users = active_result['active'] or 0
@@ -357,7 +357,7 @@ class AdminDashboardService:
         new_users_query = """
             SELECT COUNT(*) as new_users
             FROM users 
-            WHERE created_at >= ? AND is_active = TRUE
+            WHERE created_at >= %s AND is_active = TRUE
         """
         new_result = self.db.get_single_result(new_users_query, (since_date,))
         new_users = new_result['new_users']
@@ -367,7 +367,7 @@ class AdminDashboardService:
         prev_users_query = """
             SELECT COUNT(*) as prev_total
             FROM users 
-            WHERE created_at <= ? AND is_active = TRUE
+            WHERE created_at <= %s AND is_active = TRUE
         """
         prev_result = self.db.get_single_result(prev_users_query, (previous_period,))
         previous_total = prev_result['prev_total']
@@ -416,7 +416,7 @@ class AdminDashboardService:
         churn_query = """
             SELECT COUNT(*) as churned
             FROM subscriptions 
-            WHERE cancelled_at >= ? AND cancelled_at IS NOT NULL
+            WHERE cancelled_at >= %s AND cancelled_at IS NOT NULL
         """
         churn_result = self.db.get_single_result(churn_query, (since_date,))
         churned_users = churn_result['churned']
@@ -435,14 +435,14 @@ class AdminDashboardService:
     def _get_usage_metrics(self, since_date: datetime) -> Dict[str, Any]:
         """Get usage-related metrics"""
         # Total analyses
-        total_query = "SELECT COUNT(*) as total, SUM(resume_count) as total_resumes FROM analysis_sessions WHERE status = 'completed'"
+        total_query = "SELECT COUNT(*) as total, COUNT(*) as total_resumes FROM analysis_sessions WHERE status = 'completed'"
         total_result = self.db.get_single_result(total_query)
         
         # This period analyses
         period_query = """
-            SELECT COUNT(*) as period_total, SUM(resume_count) as period_resumes
+            SELECT COUNT(*) as period_total, COUNT(*) as period_resumes
             FROM analysis_sessions 
-            WHERE created_at >= ? AND status = 'completed'
+            WHERE created_at >= %s AND status = 'completed'
         """
         period_result = self.db.get_single_result(period_query, (since_date,))
         
@@ -525,7 +525,7 @@ class AdminDashboardService:
                 MAX(processing_time_seconds) as max_processing_time,
                 MIN(processing_time_seconds) as min_processing_time
             FROM analysis_sessions 
-            WHERE status = 'completed' AND created_at >= ?
+            WHERE status = 'completed' AND created_at >= %s
         """
         
         since_24h = datetime.utcnow() - timedelta(hours=24)
