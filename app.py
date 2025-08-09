@@ -512,10 +512,13 @@ def check_payment_system_status():
             with st.sidebar.expander("🔧 Payment System Status"):
                 enhanced_razorpay_service.render_status_debug()
     else:
-        # Check basic razorpay service
-        if not enhanced_razorpay_service.client:
-            st.sidebar.error("❌ Payment system not configured")
-            st.sidebar.info("Add RAZORPAY_KEY_SECRET to Streamlit secrets")
+        # Check payment system status and show appropriate message
+        try:
+            from billing.payment_fallback import render_payment_status
+            render_payment_status()
+        except Exception as e:
+            logger.error(f"Failed to render payment status: {e}")
+            st.sidebar.info("💳 Free Tier Available")
 
 def save_analysis_with_history(user_id: str, resume_filename: str, resume_content: str,
                               job_description: str, analysis_result: dict, 

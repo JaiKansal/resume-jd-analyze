@@ -47,6 +47,9 @@ class EnhancedRazorpayService:
     
     def initialize_client(self):
         """Initialize Razorpay client with multiple configuration sources"""
+        # Debug secrets access
+        self._debug_secrets_access()
+        
         # Try multiple sources for API keys
         self.key_id = self._get_api_key_id()
         self.key_secret = self._get_api_key_secret()
@@ -54,7 +57,10 @@ class EnhancedRazorpayService:
         
         # Initialize client
         if not self.key_id or not self.key_secret:
-            logger.warning("Razorpay credentials not found in any configuration source")
+            logger.error("❌ Razorpay credentials not found in any configuration source")
+            logger.error(f"Key ID found: {'✅' if self.key_id else '❌'}")
+            logger.error(f"Key Secret found: {'✅' if self.key_secret else '❌'}")
+            logger.error("💡 Make sure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET are set in Streamlit Cloud secrets")
             self.client = None
             self.status = "credentials_missing"
         elif not RAZORPAY_AVAILABLE:
@@ -73,7 +79,36 @@ class EnhancedRazorpayService:
                 self.client = None
                 self.status = "connection_failed"
     
-    def _get_api_key_id(self) -> Optional[str]:
+
+    def _debug_secrets_access(self):
+        """Debug secrets access for troubleshooting"""
+        logger.info("🔍 Debugging Razorpay secrets access...")
+        
+        # Check environment variables
+        env_key_id = os.getenv('RAZORPAY_KEY_ID')
+        env_key_secret = os.getenv('RAZORPAY_KEY_SECRET')
+        logger.info(f"Environment RAZORPAY_KEY_ID: {'✅ Found' if env_key_id else '❌ Missing'}")
+        logger.info(f"Environment RAZORPAY_KEY_SECRET: {'✅ Found' if env_key_secret else '❌ Missing'}")
+        
+        # Check Streamlit secrets
+        try:
+            import streamlit as st
+            if hasattr(st, 'secrets'):
+                secrets_key_id = st.secrets.get('RAZORPAY_KEY_ID')
+                secrets_key_secret = st.secrets.get('RAZORPAY_KEY_SECRET')
+                logger.info(f"Streamlit secrets RAZORPAY_KEY_ID: {'✅ Found' if secrets_key_id else '❌ Missing'}")
+                logger.info(f"Streamlit secrets RAZORPAY_KEY_SECRET: {'✅ Found' if secrets_key_secret else '❌ Missing'}")
+                
+                # Log available secrets (without values)
+                available_secrets = list(st.secrets.keys()) if hasattr(st.secrets, 'keys') else []
+                logger.info(f"Available secrets: {available_secrets}")
+            else:
+                logger.warning("❌ st.secrets not available")
+        except Exception as e:
+            logger.error(f"❌ Error accessing Streamlit secrets: {e}")
+    
+
+        def _get_api_key_id(self) -> Optional[str]:
         """Get API key ID from multiple sources"""
         # Try environment variables first
         key_id = os.getenv('RAZORPAY_KEY_ID')

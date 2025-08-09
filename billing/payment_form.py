@@ -158,9 +158,15 @@ class PaymentForm:
         try:
             # Check if Razorpay is configured
             if not razorpay_service.client:
-                st.error("❌ Payment system not configured. Please contact support.")
-                st.info("**Debug Info**: Razorpay client not initialized. Check API keys in secrets.")
-                return
+                # Use fallback payment system
+                try:
+                    from billing.payment_fallback import payment_fallback_service
+                    payment_fallback_service.render_payment_not_configured_message()
+                    return
+                except Exception as e:
+                    st.error("❌ Payment system is currently being configured.")
+                    st.info("💡 You can continue using the free tier with full functionality!")
+                    return
             
             # Show processing message
             with st.spinner("Setting up payment..."):
