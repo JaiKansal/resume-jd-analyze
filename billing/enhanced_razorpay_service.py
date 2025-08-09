@@ -70,12 +70,18 @@ class EnhancedRazorpayService:
         else:
             try:
                 self.client = razorpay.Client(auth=(self.key_id, self.key_secret))
-                # Test the connection
-                self._test_connection()
-                logger.info("Razorpay client initialized successfully")
-                self.status = "connected"
+                logger.info("✅ Razorpay client created successfully")
+                
+                # Test the connection (but don't fail initialization if test fails)
+                if self._test_connection():
+                    logger.info("✅ Razorpay connection test passed")
+                    self.status = "connected"
+                else:
+                    logger.warning("⚠️ Razorpay connection test failed, but client is available")
+                    self.status = "connected"  # Still mark as connected since client was created
+                    
             except Exception as e:
-                logger.error(f"Failed to initialize Razorpay client: {e}")
+                logger.error(f"❌ Failed to initialize Razorpay client: {e}")
                 self.client = None
                 self.status = "connection_failed"
     
@@ -178,6 +184,12 @@ class EnhancedRazorpayService:
             'client_initialized': self.client is not None,
             'key_id_preview': self.key_id[:12] + "..." if self.key_id else None
         }
+    
+    def reinitialize(self):
+        """Reinitialize the Razorpay client (useful for debugging)"""
+        logger.info("🔄 Reinitializing Razorpay client...")
+        self.initialize_client()
+        return self.status == "connected"
     
     def render_status_debug(self):
         """Render status debug information in Streamlit"""

@@ -97,11 +97,19 @@ def get_payment_service():
     try:
         from billing.enhanced_razorpay_service import enhanced_razorpay_service
         
+        # Try to reinitialize if status is not connected
+        if enhanced_razorpay_service.status != "connected":
+            logger.info("🔄 Attempting to reinitialize Razorpay service...")
+            enhanced_razorpay_service.reinitialize()
+        
         # Check if Razorpay is properly configured
-        if enhanced_razorpay_service.status == "connected":
+        if enhanced_razorpay_service.status == "connected" and enhanced_razorpay_service.client:
+            logger.info("✅ Using Razorpay payment service")
             return enhanced_razorpay_service
         else:
-            logger.warning(f"Razorpay not configured (status: {enhanced_razorpay_service.status}), using fallback")
+            status_info = enhanced_razorpay_service.get_status_info()
+            logger.warning(f"Razorpay not available (status: {enhanced_razorpay_service.status})")
+            logger.warning(f"Status info: {status_info}")
             return payment_fallback_service
     except Exception as e:
         logger.error(f"Failed to load Razorpay service: {e}")
