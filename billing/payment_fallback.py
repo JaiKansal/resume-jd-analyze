@@ -95,25 +95,43 @@ payment_fallback_service = PaymentFallbackService()
 def get_payment_service():
     """Get the appropriate payment service (with fallback)"""
     try:
-        from billing.enhanced_razorpay_service import enhanced_razorpay_service
+        # Try production-ready service first
+        from billing.production_razorpay_service import production_razorpay_service
         
         # Try to reinitialize if status is not connected
-        if enhanced_razorpay_service.status != "connected":
+        if production_razorpay_service.status != "connected":
             logger.info("🔄 Attempting to reinitialize Razorpay service...")
-            enhanced_razorpay_service.reinitialize()
+            production_razorpay_service.reinitialize()
         
         # Check if Razorpay is properly configured
-        if enhanced_razorpay_service.status == "connected" and enhanced_razorpay_service.client:
-            logger.info("✅ Using Razorpay payment service")
-            return enhanced_razorpay_service
+        if production_razorpay_service.status == "connected" and production_razorpay_service.client:
+            logger.info("✅ Using production Razorpay payment service")
+            return production_razorpay_service
         else:
-            status_info = enhanced_razorpay_service.get_status_info()
-            logger.warning(f"Razorpay not available (status: {enhanced_razorpay_service.status})")
+            status_info = production_razorpay_service.get_status_info()
+            logger.warning(f"Razorpay not available (status: {production_razorpay_service.status})")
             logger.warning(f"Status info: {status_info}")
             return payment_fallback_service
+            
     except Exception as e:
-        logger.error(f"Failed to load Razorpay service: {e}")
-        return payment_fallback_service
+        logger.warning(f"Production service failed, trying enhanced service: {e}")
+        
+        # Fallback to enhanced service
+        try:
+            from billing.enhanced_razorpay_service import enhanced_razorpay_service
+            
+            if enhanced_razorpay_service.status != "connected":
+                enhanced_razorpay_service.reinitialize()
+            
+            if enhanced_razorpay_service.status == "connected" and enhanced_razorpay_service.client:
+                logger.info("✅ Using enhanced Razorpay payment service")
+                return enhanced_razorpay_service
+            else:
+                return payment_fallback_service
+                
+        except Exception as e2:
+            logger.error(f"Failed to load any Razorpay service: {e2}")
+            return payment_fallback_service
 
 def render_payment_status():
     """Render current payment system status"""

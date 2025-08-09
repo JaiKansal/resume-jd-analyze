@@ -18,7 +18,11 @@ try:
     RAZORPAY_AVAILABLE = True
 except ImportError:
     RAZORPAY_AVAILABLE = False
-    st.warning("⚠️ Razorpay SDK not installed. Run: pip install razorpay")
+    try:
+        import streamlit as st
+        st.warning("⚠️ Razorpay SDK not installed. Run: pip install razorpay")
+    except Exception:
+        pass  # Don't fail if Streamlit not available
 
 try:
     from auth.models import User, PlanType
@@ -41,6 +45,17 @@ logger = logging.getLogger(__name__)
 
 class EnhancedRazorpayService:
     """Enhanced Razorpay service with better configuration handling"""
+    
+
+    def _error(self, code: str, message: str, detail: Any = None):
+        """Return structured error response"""
+        logger.error(f"{code}: {message} | {detail}")
+        return {
+            'ok': False,
+            'code': code,
+            'message': message,
+            'detail': str(detail) if detail else None
+        }
     
     def __init__(self):
         self.initialize_client()
@@ -166,11 +181,11 @@ class EnhancedRazorpayService:
         """Test Razorpay connection"""
         if self.client:
             try:
-                # Try to fetch payment methods (lightweight API call)
-                self.client.payment.all({'count': 1})
+                # Try a lightweight API call
+                self.client.order.all({'count': 1})
                 return True
             except Exception as e:
-                logger.warning(f"Razorpay connection test failed: {e}")
+                logger.warning(f"Razorpay connection test failed (but client may still work): {e}")
                 return False
         return False
     
