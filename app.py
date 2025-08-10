@@ -277,7 +277,6 @@ ENHANCED_SERVICES_AVAILABLE = ANALYSIS_STORAGE_AVAILABLE
 
 # Analytics imports with error handling
 try:
-    try:
     from analytics.google_analytics import ga_tracker, funnel_analyzer
     logger.info("✅ Google Analytics imported successfully")
 except Exception as e:
