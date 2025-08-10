@@ -27,9 +27,10 @@ class RazorpayService:
     """Service for handling Razorpay payments and subscriptions"""
     
     def __init__(self):
-        self.key_id = os.getenv('RAZORPAY_KEY_ID')
-        self.key_secret = os.getenv('RAZORPAY_KEY_SECRET')
-        self.webhook_secret = os.getenv('RAZORPAY_WEBHOOK_SECRET')
+        # Try to get credentials from multiple sources
+        self.key_id = self._get_key_id()
+        self.key_secret = self._get_key_secret()
+        self.webhook_secret = self._get_webhook_secret()
         
         if not self.key_id or not self.key_secret:
             logger.warning("Razorpay credentials not found. Payment processing will be disabled.")
@@ -38,8 +39,63 @@ class RazorpayService:
             logger.warning("Razorpay SDK not installed. Payment processing will be disabled.")
             self.client = None
         else:
-            self.client = razorpay.Client(auth=(self.key_id, self.key_secret))
-            logger.info("Razorpay client initialized successfully")
+            try:
+                self.client = razorpay.Client(auth=(self.key_id, self.key_secret))
+                logger.info("Razorpay client initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize Razorpay client: {e}")
+                self.client = None
+    
+    def _get_key_id(self):
+        """Get API key ID from multiple sources"""
+        # Try environment variables first
+        key_id = os.getenv('RAZORPAY_KEY_ID')
+        if key_id:
+            return key_id
+        
+        # Try Streamlit secrets
+        try:
+            import streamlit as st
+            if hasattr(st, 'secrets') and 'RAZORPAY_KEY_ID' in st.secrets:
+                return st.secrets['RAZORPAY_KEY_ID']
+        except:
+            pass
+        
+        return None
+    
+    def _get_key_secret(self):
+        """Get API key secret from multiple sources"""
+        # Try environment variables first
+        key_secret = os.getenv('RAZORPAY_KEY_SECRET')
+        if key_secret:
+            return key_secret
+        
+        # Try Streamlit secrets
+        try:
+            import streamlit as st
+            if hasattr(st, 'secrets') and 'RAZORPAY_KEY_SECRET' in st.secrets:
+                return st.secrets['RAZORPAY_KEY_SECRET']
+        except:
+            pass
+        
+        return None
+    
+    def _get_webhook_secret(self):
+        """Get webhook secret from multiple sources"""
+        # Try environment variables first
+        webhook_secret = os.getenv('RAZORPAY_WEBHOOK_SECRET')
+        if webhook_secret:
+            return webhook_secret
+        
+        # Try Streamlit secrets
+        try:
+            import streamlit as st
+            if hasattr(st, 'secrets') and 'RAZORPAY_WEBHOOK_SECRET' in st.secrets:
+                return st.secrets['RAZORPAY_WEBHOOK_SECRET']
+        except:
+            pass
+        
+        return None
     
     def create_customer(self, user: User) -> Optional[Dict[str, Any]]:
         """Create a Razorpay customer"""

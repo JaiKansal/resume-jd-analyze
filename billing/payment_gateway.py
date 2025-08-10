@@ -116,3 +116,6 @@ class PaymentGatewayManager:
 
 # Global instance
 payment_gateway_manager = PaymentGatewayManager()
+
+# Export with expected name for compatibility
+payment_gateway = payment_gateway_manager
