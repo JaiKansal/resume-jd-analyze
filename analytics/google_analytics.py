@@ -1,36 +1,4 @@
-"""
-Minimal Google Analytics fallback
-"""
-
-import logging
-logger = logging.getLogger(__name__)
-
-class FallbackGATracker:
-    def __init__(self):
-        logger.warning("Using fallback Google Analytics tracker")
-    
-    def track_event(self, *args, **kwargs):
-        pass
-    
-    def track_page_view(self, *args, **kwargs):
-        pass
-    
-    def track_conversion(self, *args, **kwargs):
-        pass
-
-class FallbackFunnelAnalyzer:
-    def __init__(self):
-        logger.warning("Using fallback funnel analyzer")
-    
-    def analyze_funnel(self, *args, **kwargs):
-        return {}
-
-# Create instances
-ga_tracker = FallbackGATracker()
-funnel_analyzer = FallbackFunnelAnalyzer()
-
-
-# Original content below:
+# Streamlit Cloud compatible Google Analytics module
 """
 Google Analytics integration for Resume + JD Analyzer
 Handles event tracking, conversion funnel analysis, and user engagement metrics
@@ -403,9 +371,60 @@ def create_analytics_tables():
     except Exception as e:
         logger.error(f"Failed to create analytics tracking tables: {e}")
 
-# Service instances
-ga_tracker = GoogleAnalyticsTracker()
-funnel_analyzer = ConversionFunnelAnalyzer()
+# Service instances with fallback handling
+try:
+    ga_tracker = GoogleAnalyticsTracker()
+    funnel_analyzer = ConversionFunnelAnalyzer()
+    # Initialize tables on import
+    create_analytics_tables()
+    logger.info("✅ Full Google Analytics services initialized")
+except Exception as e:
+    logger.warning(f"Using fallback analytics services: {e}")
+    
+    class FallbackGATracker:
+        def __init__(self):
+            logger.warning("Using fallback Google Analytics tracker")
+        
+        def track_event(self, *args, **kwargs):
+            pass
+        
+        def track_page_view(self, *args, **kwargs):
+            pass
+        
+        def track_conversion(self, *args, **kwargs):
+            pass
+        
+        def track_user_signup(self, *args, **kwargs):
+            pass
+        
+        def track_subscription_event(self, *args, **kwargs):
+            pass
+        
+        def track_analysis_completion(self, *args, **kwargs):
+            pass
+        
+        def track_conversion_funnel(self, *args, **kwargs):
+            pass
+        
+        def track_feature_usage(self, *args, **kwargs):
+            pass
+        
+        def track_error(self, *args, **kwargs):
+            pass
 
-# Initialize tables on import
-create_analytics_tables()
+    class FallbackFunnelAnalyzer:
+        def __init__(self):
+            logger.warning("Using fallback funnel analyzer")
+        
+        def get_funnel_metrics(self, *args, **kwargs):
+            return {}
+        
+        def get_cohort_analysis(self, *args, **kwargs):
+            return {}
+        
+        def analyze_funnel(self, *args, **kwargs):
+            return {}
+
+    # Create fallback instances
+    ga_tracker = FallbackGATracker()
+    funnel_analyzer = FallbackFunnelAnalyzer()

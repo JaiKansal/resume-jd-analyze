@@ -14,15 +14,12 @@ from datetime import datetime, timedelta
 # Razorpay SDK with fallback
 try:
     import razorpay
-    print("Razorpay SDK import success")
     RAZORPAY_AVAILABLE = True
-except ImportError:
+    logger.info("✅ Razorpay SDK imported successfully")
+except ImportError as e:
     RAZORPAY_AVAILABLE = False
-    try:
-        import streamlit as st
-        st.warning("⚠️ Razorpay SDK not installed. Run: pip install razorpay")
-    except Exception:
-        pass  # Don't fail if Streamlit not available
+    logger.warning(f"Razorpay SDK not available: {e}")
+    # Don't show Streamlit warning here as it causes issues
 
 try:
     from auth.models import User, PlanType

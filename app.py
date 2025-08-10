@@ -191,48 +191,62 @@ except ImportError:
         ANALYSIS_STORAGE_AVAILABLE = False
         logger.error("No analysis storage available")
 
-# Try to import enhanced Razorpay service with comprehensive error handling
+# Import Razorpay service with proper fallback handling for Streamlit Cloud
+enhanced_razorpay_service = None
+
+# First, try the fallback service (works without SDK issues)
 try:
-    from billing.enhanced_razorpay_service import enhanced_razorpay_service
-    
-    # Check if Razorpay SDK is missing and use fallback
-    try:
-        status_info = enhanced_razorpay_service.get_status_info()
-        if status_info.get('status') == 'sdk_missing':
-            try:
-                from billing.fallback_razorpay_service import fallback_razorpay_service
-                enhanced_razorpay_service = fallback_razorpay_service
-                logger.info("Using fallback Razorpay service (Direct API)")
-            except ImportError:
-                logger.warning("Fallback Razorpay service not available")
-        else:
-            logger.info("✅ Enhanced Razorpay service imported successfully")
-    except Exception as e:
-        logger.warning(f"Razorpay service status check failed: {e}")
-    
+    from billing.fallback_razorpay_service import fallback_razorpay_service
+    enhanced_razorpay_service = fallback_razorpay_service
+    logger.info("✅ Using fallback Razorpay service (Direct API - Streamlit Cloud compatible)")
 except ImportError as e:
-    logger.warning(f"Enhanced Razorpay service not available: {e}")
+    logger.warning(f"Fallback Razorpay service not available: {e}")
+
+# If fallback failed, try enhanced service
+if enhanced_razorpay_service is None:
     try:
-        from billing.fallback_razorpay_service import fallback_razorpay_service as enhanced_razorpay_service
-        logger.info("Using fallback Razorpay service")
-    except ImportError as e2:
-        logger.warning(f"Fallback Razorpay service not available: {e2}")
+        from billing.enhanced_razorpay_service import enhanced_razorpay_service
+        
+        # Check if SDK is available
         try:
-            from billing.razorpay_service import razorpay_service as enhanced_razorpay_service
-            logger.info("Using basic Razorpay service")
-        except ImportError as e3:
-            logger.error(f"No Razorpay service available: {e3}")
-            # Create minimal fallback
-            class FallbackRazorpayService:
-                def create_order(self, *args, **kwargs): 
-                    return {"error": "Payment service not available"}
-                def verify_payment(self, *args, **kwargs): 
-                    return False
-                def get_status_info(self): 
-                    return {"status": "unavailable"}
+            status_info = enhanced_razorpay_service.get_status_info()
+            if status_info.get('status') == 'sdk_missing':
+                logger.warning("Enhanced service reports SDK missing, but continuing...")
+            logger.info("✅ Enhanced Razorpay service imported successfully")
+        except Exception as e:
+            logger.warning(f"Enhanced service status check failed: {e}")
             
-            enhanced_razorpay_service = FallbackRazorpayService()
-            logger.info("Using minimal Razorpay fallback")
+    except ImportError as e:
+        logger.warning(f"Enhanced Razorpay service not available: {e}")
+        enhanced_razorpay_service = None
+
+# If both failed, try basic service
+if enhanced_razorpay_service is None:
+    try:
+        from billing.razorpay_service import razorpay_service as enhanced_razorpay_service
+        logger.info("✅ Using basic Razorpay service")
+    except ImportError as e:
+        logger.warning(f"Basic Razorpay service not available: {e}")
+        enhanced_razorpay_service = None
+
+# Final fallback - create minimal service
+if enhanced_razorpay_service is None:
+    logger.error("No Razorpay service available - creating minimal fallback")
+    
+    class MinimalRazorpayService:
+        def create_order(self, *args, **kwargs): 
+            return {"error": "Payment service not available"}
+        def create_payment_link(self, *args, **kwargs):
+            return {"error": "Payment service not available"}
+        def verify_payment(self, *args, **kwargs): 
+            return False
+        def get_status_info(self): 
+            return {"status": "unavailable", "error": "No payment service available"}
+        def render_status_debug(self):
+            st.error("❌ Payment service not available")
+    
+    enhanced_razorpay_service = MinimalRazorpayService()
+    logger.info("Using minimal Razorpay fallback")
 
 # Try to import report history UI (optional, only for enhanced features)
 try:
@@ -263,15 +277,25 @@ ENHANCED_SERVICES_AVAILABLE = ANALYSIS_STORAGE_AVAILABLE
 
 # Analytics imports with error handling
 try:
+    try:
     from analytics.google_analytics import ga_tracker, funnel_analyzer
     logger.info("✅ Google Analytics imported successfully")
-except ImportError as e:
+except Exception as e:
     logger.warning(f"Google Analytics not available: {e}")
     # Create fallback objects
     class FallbackTracker:
         def track_event(self, *args, **kwargs): pass
         def track_page_view(self, *args, **kwargs): pass
         def track_conversion(self, *args, **kwargs): pass
+        def track_user_signup(self, *args, **kwargs): pass
+        def track_subscription_event(self, *args, **kwargs): pass
+        def track_analysis_completion(self, *args, **kwargs): pass
+        def track_conversion_funnel(self, *args, **kwargs): pass
+        def track_feature_usage(self, *args, **kwargs): pass
+        def track_error(self, *args, **kwargs): pass
+        def get_funnel_metrics(self, *args, **kwargs): return {}
+        def get_cohort_analysis(self, *args, **kwargs): return {}
+        def analyze_funnel(self, *args, **kwargs): return {}
     
     ga_tracker = FallbackTracker()
     funnel_analyzer = FallbackTracker()
