@@ -411,6 +411,57 @@ class RazorpayService:
                 'icon': '📊'
             }
         ]
+    
+    def get_status_info(self) -> Dict[str, Any]:
+        """Get detailed status information for debugging"""
+        return {
+            'status': 'connected' if self.client else 'credentials_missing',
+            'key_id_present': bool(self.key_id),
+            'key_secret_present': bool(self.key_secret),
+            'sdk_available': RAZORPAY_AVAILABLE,
+            'client_initialized': self.client is not None,
+            'key_id_preview': self.key_id[:12] + "..." if self.key_id else None,
+            'webhook_secret_present': bool(self.webhook_secret)
+        }
+    
+    def render_status_debug(self):
+        """Render status debug information in Streamlit"""
+        try:
+            import streamlit as st
+            
+            status_info = self.get_status_info()
+            
+            if self.client:
+                st.success("✅ Razorpay payment system is working")
+                st.info("💡 Using Razorpay SDK")
+            else:
+                st.error("❌ Razorpay payment system configuration issue")
+                
+                with st.expander("🔧 Debug Information"):
+                    st.json(status_info)
+                    
+                    if not status_info['key_id_present'] or not status_info['key_secret_present']:
+                        st.markdown("""
+                        **Fix Required**: Add Razorpay API credentials
+                        
+                        **For Streamlit Cloud:**
+                        1. Go to your app settings
+                        2. Add secrets:
+                           - `RAZORPAY_KEY_ID` = your_key_id
+                           - `RAZORPAY_KEY_SECRET` = your_secret_key
+                        """)
+                    elif not status_info['sdk_available']:
+                        st.markdown("""
+                        **Fix Required**: Install Razorpay SDK
+                        
+                        Add to requirements.txt:
+                        ```
+                        razorpay>=1.3.0
+                        ```
+                        """)
+        except ImportError:
+            # Fallback if streamlit not available
+            print(f"Razorpay Status: {self.get_status_info()}")
 
 # Global instance
 razorpay_service = RazorpayService()
