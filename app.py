@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Resume + JD Analyzer - Minimal Streamlit Cloud Version
+Resume + JD Analyzer - Real AI-Powered Analysis with Perplexity API
 """
 
 import streamlit as st
@@ -10,6 +10,12 @@ import os
 import sys
 from pathlib import Path
 import logging
+import requests
+import json
+import PyPDF2
+import io
+import re
+from typing import Dict, Any, Optional
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +42,208 @@ def create_test_user():
         'last_name': 'User',
         'get_full_name': lambda self=None: 'Demo User'
     })()
+
+def extract_text_from_pdf(pdf_file) -> Optional[str]:
+    """Extract text from uploaded PDF file"""
+    try:
+        pdf_file.seek(0)
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_file.read()))
+        
+        text = ""
+        for page_num in range(len(pdf_reader.pages)):
+            page = pdf_reader.pages[page_num]
+            text += page.extract_text() + "\n"
+        
+        text = text.strip()
+        if not text:
+            return None
+        
+        logger.info(f"Extracted {len(text)} characters from PDF")
+        return text
+        
+    except Exception as e:
+        logger.error(f"Failed to extract text from PDF: {e}")
+        return None
+
+def get_perplexity_api_key():
+    """Get Perplexity API key from secrets or environment"""
+    try:
+        # Try Streamlit secrets first
+        if hasattr(st, 'secrets') and 'PERPLEXITY_API_KEY' in st.secrets:
+            return st.secrets['PERPLEXITY_API_KEY']
+    except:
+        pass
+    
+    # Try environment variable
+    return os.getenv('PERPLEXITY_API_KEY')
+
+def analyze_resume_with_ai(resume_text: str, job_description: str) -> Dict[str, Any]:
+    """Real AI analysis using Perplexity API"""
+    
+    api_key = get_perplexity_api_key()
+    
+    if not api_key:
+        st.warning("⚠️ Perplexity API key not configured. Add PERPLEXITY_API_KEY to Streamlit secrets for AI analysis.")
+        return basic_keyword_analysis(resume_text, job_description)
+    
+    try:
+        # Create comprehensive analysis prompt
+        prompt = f"""
+You are an expert HR analyst and resume reviewer. Analyze the following resume against the job description and provide a comprehensive evaluation.
+
+JOB DESCRIPTION:
+{job_description}
+
+RESUME:
+{resume_text}
+
+Please provide a detailed analysis in JSON format with these exact fields:
+{{
+    "overall_match_score": <number 0-100>,
+    "skills_match_score": <number 0-100>,
+    "experience_match_score": <number 0-100>,
+    "education_match_score": <number 0-100>,
+    "keyword_match_score": <number 0-100>,
+    "strengths": ["list of key strengths"],
+    "weaknesses": ["list of areas for improvement"],
+    "missing_skills": ["skills mentioned in JD but not in resume"],
+    "recommendations": ["specific actionable recommendations"],
+    "key_insights": ["important insights about the match"],
+    "ats_score": <number 0-100>
+}}
+
+Focus on technical skills alignment, experience relevance, education match, and ATS compatibility.
+"""
+
+        # Call Perplexity API
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": "llama-3.1-sonar-large-128k-online",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are an expert HR analyst. Provide detailed resume analysis in the exact JSON format requested."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "max_tokens": 2000,
+            "temperature": 0.2,
+            "top_p": 0.9
+        }
+        
+        response = requests.post(
+            "https://api.perplexity.ai/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            ai_response = result['choices'][0]['message']['content']
+            
+            # Parse JSON from AI response
+            try:
+                json_match = re.search(r'\{.*\}', ai_response, re.DOTALL)
+                if json_match:
+                    analysis = json.loads(json_match.group())
+                    
+                    # Validate scores
+                    for key in ['overall_match_score', 'skills_match_score', 'experience_match_score', 
+                               'education_match_score', 'keyword_match_score', 'ats_score']:
+                        if key not in analysis:
+                            analysis[key] = 50
+                        analysis[key] = max(0, min(100, int(analysis[key])))
+                    
+                    # Ensure lists exist
+                    for key in ['strengths', 'weaknesses', 'missing_skills', 'recommendations', 'key_insights']:
+                        if key not in analysis or not isinstance(analysis[key], list):
+                            analysis[key] = [f"AI analysis for {key}"]
+                    
+                    analysis['analysis_type'] = 'ai_powered'
+                    analysis['api_used'] = 'perplexity'
+                    return analysis
+                    
+            except json.JSONDecodeError:
+                # If JSON parsing fails, extract info from text
+                return parse_text_analysis(ai_response, resume_text, job_description)
+        
+        else:
+            st.error(f"Perplexity API error: {response.status_code}")
+            return basic_keyword_analysis(resume_text, job_description)
+            
+    except Exception as e:
+        st.error(f"AI analysis failed: {e}")
+        return basic_keyword_analysis(resume_text, job_description)
+
+def parse_text_analysis(ai_text: str, resume_text: str, job_description: str) -> Dict[str, Any]:
+    """Parse AI text response when JSON parsing fails"""
+    
+    # Extract scores using regex
+    scores = {}
+    score_patterns = {
+        'overall_match_score': r'overall.*?(\d+)%?',
+        'skills_match_score': r'skills?.*?(\d+)%?',
+        'experience_match_score': r'experience.*?(\d+)%?',
+        'education_match_score': r'education.*?(\d+)%?',
+        'keyword_match_score': r'keyword.*?(\d+)%?',
+        'ats_score': r'ats.*?(\d+)%?'
+    }
+    
+    for key, pattern in score_patterns.items():
+        match = re.search(pattern, ai_text, re.IGNORECASE)
+        scores[key] = int(match.group(1)) if match else 65
+    
+    return {
+        **scores,
+        'strengths': ["AI analysis completed"],
+        'weaknesses': ["See detailed analysis"],
+        'missing_skills': ["Review AI feedback"],
+        'recommendations': ["Follow AI suggestions"],
+        'key_insights': [ai_text[:200] + "..."],
+        'analysis_type': 'ai_text_parsed',
+        'api_used': 'perplexity'
+    }
+
+def basic_keyword_analysis(resume_text: str, job_description: str) -> Dict[str, Any]:
+    """Basic keyword matching when AI is not available"""
+    
+    jd_words = set(word.lower() for word in job_description.split() if len(word) > 3)
+    resume_words = set(word.lower() for word in resume_text.split() if len(word) > 3)
+    
+    common_words = jd_words.intersection(resume_words)
+    keyword_match = len(common_words) / len(jd_words) * 100 if jd_words else 0
+    
+    base_score = min(85, max(35, keyword_match + 20))
+    
+    return {
+        'overall_match_score': int(base_score),
+        'skills_match_score': int(base_score - 5),
+        'experience_match_score': int(base_score + 5),
+        'education_match_score': int(base_score),
+        'keyword_match_score': int(keyword_match),
+        'ats_score': int(keyword_match + 10),
+        'strengths': [f"Found {len(common_words)} matching keywords"],
+        'weaknesses': ["Add Perplexity API key for detailed AI analysis"],
+        'missing_skills': ["Enable AI analysis for detailed insights"],
+        'recommendations': [
+            "Add PERPLEXITY_API_KEY to Streamlit secrets",
+            "Enhance resume with job-specific keywords"
+        ],
+        'key_insights': [
+            f"Basic analysis found {len(common_words)} keyword matches",
+            "Enable AI for comprehensive insights"
+        ],
+        'analysis_type': 'basic_keyword',
+        'api_used': 'none'
+    }
 
 def render_single_analysis():
     """Render single resume analysis"""
@@ -66,47 +274,41 @@ def render_single_analysis():
             st.error("❌ Please upload a resume file")
             return
         
-        # Enhanced analysis simulation with dynamic results
-        with st.spinner("Analyzing resume against job description..."):
-            import time
-            import random
-            time.sleep(2)  # Simulate processing
+        # Extract text from PDF
+        resume_text = extract_text_from_pdf(uploaded_file)
+        
+        if not resume_text:
+            st.error("❌ Could not extract text from PDF. Please ensure it's a valid PDF with readable text.")
+            return
+        
+        # Real AI-powered analysis
+        with st.spinner("🤖 Analyzing resume with AI... This may take 10-30 seconds"):
+            analysis = analyze_resume_with_ai(resume_text, job_description)
             
-            # Generate dynamic scores based on job description length and content
-            jd_length = len(job_description.strip())
-            jd_words = len(job_description.split())
+            st.success("✅ AI Analysis Complete!")
             
-            # Base scores that vary based on input
-            base_score = min(95, max(45, 60 + (jd_length // 20)))
+            # Display analysis type
+            if analysis.get('analysis_type') == 'ai_powered':
+                st.info("🤖 **Powered by Perplexity AI** - Real-time analysis")
+            else:
+                st.warning("⚠️ **Basic Analysis** - Add PERPLEXITY_API_KEY for AI-powered insights")
             
-            # Generate realistic varying scores
-            match_score = base_score + random.randint(-10, 10)
-            skills_score = match_score + random.randint(-15, 5)
-            experience_score = match_score + random.randint(-8, 12)
-            education_score = match_score + random.randint(-5, 8)
-            
-            # Ensure scores are within realistic bounds
-            match_score = max(30, min(95, match_score))
-            skills_score = max(25, min(95, skills_score))
-            experience_score = max(35, min(95, experience_score))
-            education_score = max(40, min(95, education_score))
-            
-            st.success("✅ Analysis Complete!")
-            
+            # Main metrics
             col1, col2 = st.columns(2)
             
             with col1:
-                st.metric("Match Score", f"{match_score}%", f"{random.randint(5, 15)}%")
-                st.metric("Skills Match", f"{skills_score}%", f"{random.randint(3, 12)}%")
+                st.metric("Overall Match", f"{analysis['overall_match_score']}%")
+                st.metric("Skills Match", f"{analysis['skills_match_score']}%")
+                st.metric("ATS Compatibility", f"{analysis['ats_score']}%")
             
             with col2:
-                st.metric("Experience Match", f"{experience_score}%", f"{random.randint(8, 18)}%")
-                st.metric("Education Match", f"{education_score}%", f"{random.randint(2, 10)}%")
+                st.metric("Experience Match", f"{analysis['experience_match_score']}%")
+                st.metric("Education Match", f"{analysis['education_match_score']}%")
+                st.metric("Keyword Match", f"{analysis['keyword_match_score']}%")
             
-            # Analysis details with dynamic data
+            # Detailed breakdown
             st.subheader("📊 Detailed Analysis")
             
-            # Determine status based on scores
             def get_status(score):
                 if score >= 80: return "Excellent"
                 elif score >= 65: return "Good"
@@ -114,35 +316,64 @@ def render_single_analysis():
                 else: return "Needs Improvement"
             
             analysis_data = {
-                'Category': ['Technical Skills', 'Experience', 'Education', 'Keywords', 'Overall'],
-                'Score': [skills_score, experience_score, education_score, 
-                         min(90, max(40, match_score + random.randint(-5, 5))), match_score],
-                'Status': [get_status(skills_score), get_status(experience_score), 
-                          get_status(education_score), get_status(match_score), get_status(match_score)]
+                'Category': ['Overall Match', 'Technical Skills', 'Experience', 'Education', 'Keywords', 'ATS Score'],
+                'Score': [
+                    analysis['overall_match_score'],
+                    analysis['skills_match_score'],
+                    analysis['experience_match_score'],
+                    analysis['education_match_score'],
+                    analysis['keyword_match_score'],
+                    analysis['ats_score']
+                ],
+                'Status': [
+                    get_status(analysis['overall_match_score']),
+                    get_status(analysis['skills_match_score']),
+                    get_status(analysis['experience_match_score']),
+                    get_status(analysis['education_match_score']),
+                    get_status(analysis['keyword_match_score']),
+                    get_status(analysis['ats_score'])
+                ]
             }
             
             df = pd.DataFrame(analysis_data)
             st.dataframe(df, use_container_width=True)
             
-            # Dynamic recommendations based on scores
-            st.subheader("💡 Recommendations")
+            # AI Insights
+            if analysis.get('strengths'):
+                st.subheader("💪 Key Strengths")
+                for strength in analysis['strengths']:
+                    st.success(f"✅ {strength}")
             
-            if skills_score < 70:
-                st.info("• Add more specific technical skills mentioned in the job description")
-            if experience_score < 75:
-                st.info("• Highlight relevant project experience and achievements")
-            if match_score < 80:
-                st.info("• Include more industry-specific keywords from the job posting")
-            if education_score < 70:
-                st.info("• Emphasize relevant educational background and certifications")
+            if analysis.get('weaknesses'):
+                st.subheader("⚠️ Areas for Improvement")
+                for weakness in analysis['weaknesses']:
+                    st.warning(f"⚠️ {weakness}")
             
-            # Show job description analysis
-            st.subheader("📋 Job Description Analysis")
-            st.info(f"• Analyzed {jd_words} words in job description")
-            st.info(f"• Resume file: {uploaded_file.name} ({uploaded_file.size} bytes)")
+            if analysis.get('missing_skills'):
+                st.subheader("🎯 Missing Skills")
+                for skill in analysis['missing_skills']:
+                    st.error(f"❌ {skill}")
             
-            if jd_words < 20:
-                st.warning("⚠️ Job description seems short. More detailed job descriptions provide better analysis.")
+            # AI Recommendations
+            st.subheader("💡 AI Recommendations")
+            for i, rec in enumerate(analysis.get('recommendations', []), 1):
+                st.info(f"{i}. {rec}")
+            
+            # Key Insights
+            if analysis.get('key_insights'):
+                st.subheader("🔍 Key Insights")
+                for insight in analysis['key_insights']:
+                    st.info(f"💡 {insight}")
+            
+            # Analysis metadata
+            st.subheader("📋 Analysis Details")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Resume Length", f"{len(resume_text)} chars")
+            with col2:
+                st.metric("JD Length", f"{len(job_description)} chars")
+            with col3:
+                st.metric("Analysis Type", analysis.get('analysis_type', 'unknown').title())
 
 def render_bulk_analysis():
     """Render bulk resume analysis"""
@@ -174,57 +405,100 @@ def render_bulk_analysis():
             st.error("❌ Please upload at least one resume")
             return
         
-        # Enhanced bulk analysis simulation
-        with st.spinner(f"Analyzing {len(uploaded_files)} resumes against job description..."):
-            import time
-            import random
-            time.sleep(min(5, len(uploaded_files) * 0.8))  # Realistic processing time
-            
-            st.success(f"✅ Analyzed {len(uploaded_files)} resumes!")
-            
-            # Generate realistic varying results
-            jd_length = len(job_description.strip())
-            base_score = min(90, max(50, 65 + (jd_length // 25)))
+        # Real AI-powered bulk analysis
+        with st.spinner(f"🤖 AI analyzing {len(uploaded_files)} resumes... This may take several minutes"):
             
             results_data = []
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
             for i, file in enumerate(uploaded_files):
-                # Generate realistic scores with variation
-                match_score = base_score + random.randint(-20, 15)
-                skills_score = match_score + random.randint(-10, 8)
-                experience_score = match_score + random.randint(-12, 10)
+                status_text.text(f"Analyzing {file.name}... ({i+1}/{len(uploaded_files)})")
                 
-                # Ensure realistic bounds
-                match_score = max(35, min(95, match_score))
-                skills_score = max(30, min(95, skills_score))
-                experience_score = max(40, min(95, experience_score))
+                # Extract text from PDF
+                resume_text = extract_text_from_pdf(file)
                 
-                results_data.append({
-                    'Resume': file.name,
-                    'Match Score': f"{match_score}%",
-                    'Skills': f"{skills_score}%",
-                    'Experience': f"{experience_score}%",
-                    'File Size': f"{file.size} bytes",
-                    'Ranking': i + 1
-                })
+                if resume_text:
+                    # Real AI analysis for each resume
+                    analysis = analyze_resume_with_ai(resume_text, job_description)
+                    
+                    results_data.append({
+                        'Resume': file.name,
+                        'Overall Match': f"{analysis['overall_match_score']}%",
+                        'Skills': f"{analysis['skills_match_score']}%",
+                        'Experience': f"{analysis['experience_match_score']}%",
+                        'Education': f"{analysis['education_match_score']}%",
+                        'ATS Score': f"{analysis['ats_score']}%",
+                        'Analysis Type': analysis.get('analysis_type', 'unknown'),
+                        'File Size': f"{file.size} bytes"
+                    })
+                else:
+                    results_data.append({
+                        'Resume': file.name,
+                        'Overall Match': "Error",
+                        'Skills': "Error",
+                        'Experience': "Error",
+                        'Education': "Error",
+                        'ATS Score': "Error",
+                        'Analysis Type': 'failed',
+                        'File Size': f"{file.size} bytes"
+                    })
+                
+                # Update progress
+                progress_bar.progress((i + 1) / len(uploaded_files))
             
-            # Sort by match score for realistic ranking
-            results_data.sort(key=lambda x: int(x['Match Score'].replace('%', '')), reverse=True)
-            for i, result in enumerate(results_data):
-                result['Ranking'] = i + 1
+            status_text.text("Analysis complete!")
+            st.success(f"✅ AI Analysis Complete for {len(uploaded_files)} resumes!")
             
-            df = pd.DataFrame(results_data)
-            st.dataframe(df, use_container_width=True)
+            # Sort by overall match score
+            valid_results = [r for r in results_data if r['Overall Match'] != "Error"]
+            error_results = [r for r in results_data if r['Overall Match'] == "Error"]
             
-            # Summary statistics
-            scores = [int(r['Match Score'].replace('%', '')) for r in results_data]
-            st.subheader("📈 Analysis Summary")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Average Score", f"{sum(scores)//len(scores)}%")
-            with col2:
-                st.metric("Best Match", f"{max(scores)}%")
-            with col3:
-                st.metric("Total Analyzed", len(uploaded_files))
+            if valid_results:
+                valid_results.sort(key=lambda x: int(x['Overall Match'].replace('%', '')), reverse=True)
+                
+                # Add ranking
+                for i, result in enumerate(valid_results):
+                    result['Ranking'] = i + 1
+                
+                # Combine results
+                all_results = valid_results + error_results
+                
+                df = pd.DataFrame(all_results)
+                st.dataframe(df, use_container_width=True)
+                
+                # Summary statistics
+                if valid_results:
+                    scores = [int(r['Overall Match'].replace('%', '')) for r in valid_results]
+                    ai_powered = len([r for r in valid_results if r['Analysis Type'] == 'ai_powered'])
+                    
+                    st.subheader("📈 Analysis Summary")
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Average Score", f"{sum(scores)//len(scores)}%")
+                    with col2:
+                        st.metric("Best Match", f"{max(scores)}%")
+                    with col3:
+                        st.metric("AI Analyzed", f"{ai_powered}/{len(valid_results)}")
+                    with col4:
+                        st.metric("Success Rate", f"{len(valid_results)}/{len(uploaded_files)}")
+                
+                # Show top candidates
+                if len(valid_results) > 0:
+                    st.subheader("🏆 Top Candidates")
+                    top_3 = valid_results[:3]
+                    for i, candidate in enumerate(top_3, 1):
+                        with st.expander(f"#{i} - {candidate['Resume']} ({candidate['Overall Match']})"):
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.write(f"**Skills Match:** {candidate['Skills']}")
+                                st.write(f"**Experience Match:** {candidate['Experience']}")
+                            with col2:
+                                st.write(f"**Education Match:** {candidate['Education']}")
+                                st.write(f"**ATS Score:** {candidate['ATS Score']}")
+            
+            if error_results:
+                st.warning(f"⚠️ {len(error_results)} files could not be processed (invalid PDF or text extraction failed)")
 
 def render_dashboard():
     """Render user dashboard"""
