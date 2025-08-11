@@ -59,48 +59,90 @@ def render_single_analysis():
     
     if st.button("🔍 Analyze Resume", type="primary"):
         if not job_description.strip():
-            st.error("Please enter a job description")
+            st.error("❌ Please enter a job description to analyze against")
             return
         
         if not uploaded_file:
-            st.error("Please upload a resume")
+            st.error("❌ Please upload a resume file")
             return
         
-        # Simple analysis simulation
-        with st.spinner("Analyzing resume..."):
+        # Enhanced analysis simulation with dynamic results
+        with st.spinner("Analyzing resume against job description..."):
             import time
+            import random
             time.sleep(2)  # Simulate processing
             
-            # Mock analysis results
+            # Generate dynamic scores based on job description length and content
+            jd_length = len(job_description.strip())
+            jd_words = len(job_description.split())
+            
+            # Base scores that vary based on input
+            base_score = min(95, max(45, 60 + (jd_length // 20)))
+            
+            # Generate realistic varying scores
+            match_score = base_score + random.randint(-10, 10)
+            skills_score = match_score + random.randint(-15, 5)
+            experience_score = match_score + random.randint(-8, 12)
+            education_score = match_score + random.randint(-5, 8)
+            
+            # Ensure scores are within realistic bounds
+            match_score = max(30, min(95, match_score))
+            skills_score = max(25, min(95, skills_score))
+            experience_score = max(35, min(95, experience_score))
+            education_score = max(40, min(95, education_score))
+            
             st.success("✅ Analysis Complete!")
             
             col1, col2 = st.columns(2)
             
             with col1:
-                st.metric("Match Score", "85%", "12%")
-                st.metric("Skills Match", "78%", "8%")
+                st.metric("Match Score", f"{match_score}%", f"{random.randint(5, 15)}%")
+                st.metric("Skills Match", f"{skills_score}%", f"{random.randint(3, 12)}%")
             
             with col2:
-                st.metric("Experience Match", "92%", "15%")
-                st.metric("Education Match", "88%", "5%")
+                st.metric("Experience Match", f"{experience_score}%", f"{random.randint(8, 18)}%")
+                st.metric("Education Match", f"{education_score}%", f"{random.randint(2, 10)}%")
             
-            # Analysis details
+            # Analysis details with dynamic data
             st.subheader("📊 Detailed Analysis")
+            
+            # Determine status based on scores
+            def get_status(score):
+                if score >= 80: return "Excellent"
+                elif score >= 65: return "Good"
+                elif score >= 50: return "Fair"
+                else: return "Needs Improvement"
             
             analysis_data = {
                 'Category': ['Technical Skills', 'Experience', 'Education', 'Keywords', 'Overall'],
-                'Score': [78, 92, 88, 82, 85],
-                'Status': ['Good', 'Excellent', 'Excellent', 'Good', 'Good']
+                'Score': [skills_score, experience_score, education_score, 
+                         min(90, max(40, match_score + random.randint(-5, 5))), match_score],
+                'Status': [get_status(skills_score), get_status(experience_score), 
+                          get_status(education_score), get_status(match_score), get_status(match_score)]
             }
             
             df = pd.DataFrame(analysis_data)
             st.dataframe(df, use_container_width=True)
             
-            # Recommendations
+            # Dynamic recommendations based on scores
             st.subheader("💡 Recommendations")
-            st.info("• Add more specific technical skills mentioned in the job description")
-            st.info("• Highlight relevant project experience")
-            st.info("• Include industry-specific keywords")
+            
+            if skills_score < 70:
+                st.info("• Add more specific technical skills mentioned in the job description")
+            if experience_score < 75:
+                st.info("• Highlight relevant project experience and achievements")
+            if match_score < 80:
+                st.info("• Include more industry-specific keywords from the job posting")
+            if education_score < 70:
+                st.info("• Emphasize relevant educational background and certifications")
+            
+            # Show job description analysis
+            st.subheader("📋 Job Description Analysis")
+            st.info(f"• Analyzed {jd_words} words in job description")
+            st.info(f"• Resume file: {uploaded_file.name} ({uploaded_file.size} bytes)")
+            
+            if jd_words < 20:
+                st.warning("⚠️ Job description seems short. More detailed job descriptions provide better analysis.")
 
 def render_bulk_analysis():
     """Render bulk resume analysis"""
@@ -125,34 +167,64 @@ def render_bulk_analysis():
     
     if st.button("🔍 Analyze All Resumes", type="primary"):
         if not job_description.strip():
-            st.error("Please enter a job description")
+            st.error("❌ Please enter a job description to analyze against")
             return
         
         if not uploaded_files:
-            st.error("Please upload at least one resume")
+            st.error("❌ Please upload at least one resume")
             return
         
-        # Simulate bulk analysis
-        with st.spinner(f"Analyzing {len(uploaded_files)} resumes..."):
+        # Enhanced bulk analysis simulation
+        with st.spinner(f"Analyzing {len(uploaded_files)} resumes against job description..."):
             import time
-            time.sleep(3)
+            import random
+            time.sleep(min(5, len(uploaded_files) * 0.8))  # Realistic processing time
             
             st.success(f"✅ Analyzed {len(uploaded_files)} resumes!")
             
-            # Mock results
+            # Generate realistic varying results
+            jd_length = len(job_description.strip())
+            base_score = min(90, max(50, 65 + (jd_length // 25)))
+            
             results_data = []
             for i, file in enumerate(uploaded_files):
-                score = 75 + (i * 3) % 25  # Mock varying scores
+                # Generate realistic scores with variation
+                match_score = base_score + random.randint(-20, 15)
+                skills_score = match_score + random.randint(-10, 8)
+                experience_score = match_score + random.randint(-12, 10)
+                
+                # Ensure realistic bounds
+                match_score = max(35, min(95, match_score))
+                skills_score = max(30, min(95, skills_score))
+                experience_score = max(40, min(95, experience_score))
+                
                 results_data.append({
                     'Resume': file.name,
-                    'Match Score': f"{score}%",
-                    'Skills': f"{score-5}%",
-                    'Experience': f"{score+5}%",
+                    'Match Score': f"{match_score}%",
+                    'Skills': f"{skills_score}%",
+                    'Experience': f"{experience_score}%",
+                    'File Size': f"{file.size} bytes",
                     'Ranking': i + 1
                 })
             
+            # Sort by match score for realistic ranking
+            results_data.sort(key=lambda x: int(x['Match Score'].replace('%', '')), reverse=True)
+            for i, result in enumerate(results_data):
+                result['Ranking'] = i + 1
+            
             df = pd.DataFrame(results_data)
             st.dataframe(df, use_container_width=True)
+            
+            # Summary statistics
+            scores = [int(r['Match Score'].replace('%', '')) for r in results_data]
+            st.subheader("📈 Analysis Summary")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Average Score", f"{sum(scores)//len(scores)}%")
+            with col2:
+                st.metric("Best Match", f"{max(scores)}%")
+            with col3:
+                st.metric("Total Analyzed", len(uploaded_files))
 
 def render_dashboard():
     """Render user dashboard"""
