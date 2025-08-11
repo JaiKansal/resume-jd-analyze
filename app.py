@@ -57,8 +57,16 @@ logger = logging.getLogger(__name__)
 def extract_text_from_pdf(pdf_file) -> Optional[str]:
     """Extract text from uploaded PDF file"""
     try:
-        pdf_file.seek(0)
-        pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_file.read()))
+        # Handle both UploadedFile objects and file paths
+        if hasattr(pdf_file, 'read'):
+            # It's an UploadedFile object
+            pdf_file.seek(0)
+            pdf_content = pdf_file.read()
+            pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_content))
+        else:
+            # It's a file path
+            with open(pdf_file, 'rb') as f:
+                pdf_reader = PyPDF2.PdfReader(f)
         
         text = ""
         for page_num in range(len(pdf_reader.pages)):
