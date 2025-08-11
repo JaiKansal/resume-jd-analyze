@@ -16,3 +16,5 @@ seaborn>=0.11.0
 plotly>=5.0.0
 altair>=4.2.0
 razorpay>=1.3.0
+# Razorpay dependencies
+cryptography>=3.4.8

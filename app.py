@@ -509,22 +509,32 @@ def initialize_session_state():
 
 def check_payment_system_status():
     """Check and display payment system status"""
-    # Temporarily disabled to prevent AttributeError
     try:
         if ENHANCED_SERVICES_AVAILABLE and hasattr(enhanced_razorpay_service, 'get_status_info'):
             status_info = enhanced_razorpay_service.get_status_info()
             
             if status_info['status'] != 'connected':
-                st.sidebar.warning("⚠️ Payment system needs configuration")
+                # Only show warning, don't expand by default to avoid UI clutter
+                if not status_info.get('sdk_available', False):
+                    st.sidebar.info("💳 Payment system: SDK installing...")
+                else:
+                    st.sidebar.warning("⚠️ Payment system needs configuration")
                 
-                with st.sidebar.expander("🔧 Payment System Status"):
-                    enhanced_razorpay_service.render_status_debug()
+                # Only show debug info if user wants to see it
+                with st.sidebar.expander("🔧 Payment System Status", expanded=False):
+                    if hasattr(enhanced_razorpay_service, 'render_status_debug'):
+                        enhanced_razorpay_service.render_status_debug()
+                    else:
+                        st.json(status_info)
+            else:
+                st.sidebar.success("✅ Payment system ready")
         else:
             # Show simple payment status
             st.sidebar.info("💳 Payment system: Basic mode")
     except Exception as e:
         logger.warning(f"Payment system status check failed: {e}")
-        st.sidebar.info("💳 Payment system: Available")
+        # Don't show error to user, just log it
+        pass
 
 def save_analysis_with_history(user_id: str, resume_filename: str, resume_content: str,
                               job_description: str, analysis_result: dict, 
@@ -939,17 +949,29 @@ def render_authenticated_app():
     check_payment_system_status()
     
     # Navigation menu - add admin dashboard for admin users
-    nav_options = ["🎯 Single Analysis", "📦 Bulk Analysis", "🎯 Job Matching", "📋 Analysis History", "📊 Dashboard", "🎧 Support", "⚙️ Settings"]
-    
-    # Add admin dashboard for admin users
-    if user.role in [UserRole.ADMIN, UserRole.ENTERPRISE_ADMIN]:
-        nav_options.insert(-2, "🔧 Admin Dashboard")  # Insert before Support and Settings
-        nav_options.insert(-2, "🚀 Beta Program")  # Insert before Support and Settings
-    
-    mode = st.sidebar.selectbox(
-        "Choose Analysis Mode",
-        nav_options
-    )
+    try:
+        nav_options = ["🎯 Single Analysis", "📦 Bulk Analysis", "🎯 Job Matching", "📋 Analysis History", "📊 Dashboard", "🎧 Support", "⚙️ Settings"]
+        
+        # Add admin dashboard for admin users
+        try:
+            if user.role in [UserRole.ADMIN, UserRole.ENTERPRISE_ADMIN]:
+                nav_options.insert(-2, "🔧 Admin Dashboard")  # Insert before Support and Settings
+                nav_options.insert(-2, "🚀 Beta Program")  # Insert before Support and Settings
+        except:
+            # If role check fails, just use basic navigation
+            pass
+        
+        mode = st.sidebar.selectbox(
+            "Choose Analysis Mode",
+            nav_options
+        )
+    except Exception as e:
+        logger.error(f"Navigation menu error: {e}")
+        # Fallback navigation
+        mode = st.sidebar.selectbox(
+            "Choose Analysis Mode",
+            ["🎯 Single Analysis", "📦 Bulk Analysis", "📊 Dashboard"]
+        )
     
     # Handle upgrade modal
     from billing.upgrade_ui import upgrade_ui
