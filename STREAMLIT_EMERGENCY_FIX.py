@@ -1,5 +1,72 @@
 #!/usr/bin/env python3
 """
+Emergency fix for Streamlit Cloud - Create minimal working version
+"""
+
+import os
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def create_minimal_requirements():
+    """Create minimal requirements.txt that will definitely work"""
+    logger.info("📦 Creating minimal requirements.txt...")
+    
+    minimal_requirements = """streamlit>=1.28.0
+pandas>=1.5.0
+python-dotenv>=1.0.0
+bcrypt>=4.0.0
+psycopg2-binary>=2.9.0
+reportlab>=4.0.0
+PyPDF2>=3.0.0
+requests>=2.28.0
+python-multipart>=0.0.6
+pydantic>=2.0.0
+email-validator>=2.0.0
+Pillow>=9.0.0
+numpy>=1.21.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+plotly>=5.0.0
+altair>=4.2.0"""
+    
+    with open('requirements.txt', 'w') as f:
+        f.write(minimal_requirements)
+    
+    logger.info("✅ Minimal requirements.txt created")
+
+def create_minimal_config():
+    """Create minimal Streamlit config"""
+    logger.info("⚙️ Creating minimal config.toml...")
+    
+    os.makedirs('.streamlit', exist_ok=True)
+    
+    minimal_config = """[server]
+headless = true
+enableCORS = false
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+primaryColor = "#FF6B6B"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F0F2F6"
+textColor = "#262730"
+"""
+    
+    with open('.streamlit/config.toml', 'w') as f:
+        f.write(minimal_config)
+    
+    logger.info("✅ Minimal config.toml created")
+
+def create_minimal_app():
+    """Create a minimal working app.py"""
+    logger.info("🚀 Creating minimal app.py...")
+    
+    minimal_app = '''#!/usr/bin/env python3
+"""
 Resume + JD Analyzer - Minimal Streamlit Cloud Version
 """
 
@@ -242,6 +309,36 @@ def main():
         render_bulk_analysis()
     elif mode == "📊 Dashboard":
         render_dashboard()
+
+if __name__ == "__main__":
+    main()
+'''
+    
+    with open('app_minimal.py', 'w') as f:
+        f.write(minimal_app)
+    
+    logger.info("✅ Minimal app.py created as app_minimal.py")
+
+def main():
+    """Create minimal working version"""
+    logger.info("🚨 Creating minimal Streamlit Cloud version...")
+    
+    create_minimal_requirements()
+    create_minimal_config()
+    create_minimal_app()
+    
+    logger.info("\n🎉 Minimal version created!")
+    logger.info("\n📋 Files created:")
+    logger.info("1. ✅ requirements.txt (minimal dependencies)")
+    logger.info("2. ✅ .streamlit/config.toml (clean config)")
+    logger.info("3. ✅ app_minimal.py (working app)")
+    
+    logger.info("\n🚀 To deploy minimal version:")
+    logger.info("1. Rename app_minimal.py to app.py")
+    logger.info("2. Commit and push to GitHub")
+    logger.info("3. Streamlit Cloud will redeploy")
+    
+    return True
 
 if __name__ == "__main__":
     main()
