@@ -34,7 +34,7 @@ def create_test_user():
         'email': 'demo@example.com',
         'first_name': 'Demo',
         'last_name': 'User',
-        'get_full_name': lambda: 'Demo User'
+        'get_full_name': lambda self=None: 'Demo User'
     })()
 
 def render_single_analysis():
