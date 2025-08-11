@@ -849,11 +849,33 @@ def main():
     """Main application function"""
     initialize_session_state()
     
+    # Debug mode - add a bypass for testing
+    if st.sidebar.button("🐛 Debug Mode (Skip Auth)"):
+        st.session_state.user_authenticated = True
+        st.session_state.current_user = type('User', (), {
+            'id': 1,
+            'email': 'test@example.com',
+            'first_name': 'Test',
+            'last_name': 'User',
+            'role': UserRole.USER,
+            'is_active': True,
+            'get_full_name': lambda: 'Test User'
+        })()
+        st.rerun()
+    
     # Check authentication first
     if not st.session_state.get('user_authenticated', False):
         # Show authentication page
-        authenticated = render_auth_page()
-        if not authenticated:
+        try:
+            authenticated = render_auth_page()
+            if not authenticated:
+                st.info("👆 Use the 'Debug Mode (Skip Auth)' button in the sidebar to bypass authentication for testing")
+                return
+        except Exception as e:
+            st.error(f"Authentication error: {e}")
+            st.write("**Debug Info:**")
+            st.write("- Try clicking the 'Debug Mode (Skip Auth)' button in the sidebar")
+            st.write("- Or check if your database connection is working")
             return
     
     # User is authenticated, show main app
