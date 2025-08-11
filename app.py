@@ -181,20 +181,10 @@ from auth.models import UserRole, PlanType
 # Enhanced services imports with proper fallback
 ENHANCED_SERVICES_AVAILABLE = False
 
-# Try to import enhanced analysis storage (this should always work)
-try:
-    from database.enhanced_analysis_storage import enhanced_analysis_storage
-    ANALYSIS_STORAGE_AVAILABLE = True
-    logger.info("Enhanced analysis storage available")
-except ImportError:
-    try:
-        from database.analysis_storage import analysis_storage as enhanced_analysis_storage
-        ANALYSIS_STORAGE_AVAILABLE = True
-        logger.info("Fallback analysis storage available")
-    except ImportError:
-        enhanced_analysis_storage = None
-        ANALYSIS_STORAGE_AVAILABLE = False
-        logger.error("No analysis storage available")
+# Analysis storage - disabled for Streamlit Cloud compatibility
+ANALYSIS_STORAGE_AVAILABLE = False
+enhanced_analysis_storage = None
+logger.info("Analysis storage disabled for Streamlit Cloud compatibility")
 
 # Import Razorpay service - Streamlit Cloud compatible
 enhanced_razorpay_service = None
@@ -864,7 +854,7 @@ def main():
     if st.sidebar.button("🐛 **Debug Mode (Skip Auth)**", type="primary"):
         st.session_state.user_authenticated = True
         st.session_state.current_user = type('User', (), {
-            'id': 1,
+            'id': '1',  # Use string ID to avoid database type mismatch
             'email': 'test@example.com',
             'first_name': 'Test',
             'last_name': 'User',
